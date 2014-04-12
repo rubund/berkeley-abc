@@ -11,3 +11,13 @@
 
 %:
 	dh $@ 
+
+override_dh_auto_configure:
+	hg clone https://bitbucket.org/alanmi/abc abc
+	cd abc && hg pull && hg update -r 2058c8ccea68
+
+override_dh_auto_build:
+	cd abc && make PROG="abc-2058c8ccea68" MSG_PREFIX="YOSYS-ABC: "
+
+override_dh_install:
+	cp abc/abc-2058c8ccea68 /usr/bin/yosys-abc
