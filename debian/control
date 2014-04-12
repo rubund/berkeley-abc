@@ -2,7 +2,7 @@ Source: yosys-abc
 Section: non-free/electronics
 Priority: extra
 Maintainer: Ruben Undheim <ruben.undheim@gmail.com>
-Build-Depends: debhelper (>= 9), mercurial, libreadline-dev
+Build-Depends: debhelper (>= 9), libreadline-dev
 Standards-Version: 3.9.2
 Homepage: http://www.eecs.berkeley.edu/~alanmi/abc/
 #Vcs-Mercury: https://bitbucket.org/alanmi/abc

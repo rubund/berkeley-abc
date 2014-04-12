@@ -1,4 +1,4 @@
-yosys-abc (0.xx-1~precise) precise; urgency=low
+yosys-abc (1.01-hg2058c8ccea68-1~precise) precise; urgency=low
 
   * Initial ubuntu package of ABC for yosys
 
