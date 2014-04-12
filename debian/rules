@@ -15,6 +15,5 @@
 
 override_dh_auto_build:
 	cd abc && make PROG="abc-2058c8ccea68" MSG_PREFIX="YOSYS-ABC: "
+	cp abc/abc-2058c8ccea68 yosys-abc
 
-override_dh_install:
-	cp abc/abc-2058c8ccea68 /usr/bin/yosys-abc
