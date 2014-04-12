@@ -8,7 +8,7 @@ cd createdeb
 mkdir $PACKAGENAME-$VERSION
 cp -r ../abc  $PACKAGENAME-$VERSION/
 cp -r ../README  $PACKAGENAME-$VERSION/
-tar -czf $PACKAGENAME_$VERSION.orig.tar.gz $PACKAGENAME-$VERSION
+tar -czf ${PACKAGENAME}_${VERSION}.orig.tar.gz $PACKAGENAME-$VERSION
 cp -r -v ../debian $PACKAGENAME-$VERSION/
 cd $PACKAGENAME-$VERSION
-dpkg-buildpackage
+dpkg-buildpackage 
