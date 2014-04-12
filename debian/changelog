@@ -1,5 +1,5 @@
 yosys-abc (0.xx-1~precise) precise; urgency=low
 
-  * Initial ubuntu package 
+  * Initial ubuntu package of ABC for yosys
 
  -- Ruben Undheim <ruben.undheim@gmail.com>  Sun, 13 Apr 2014 00:51:34 +0200
