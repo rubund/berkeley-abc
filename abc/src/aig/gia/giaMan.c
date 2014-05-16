@@ -23,6 +23,10 @@
 #include "proof/abs/abs.h"
 #include "opt/dar/dar.h"
 
+#ifdef WIN32
+#include <windows.h>
+#endif
+
 ABC_NAMESPACE_IMPL_START
 
 
@@ -95,6 +99,7 @@ void Gia_ManStop( Gia_Man_t * p )
     Vec_IntFreeP( &p->vFlopClasses );
     Vec_IntFreeP( &p->vGateClasses );
     Vec_IntFreeP( &p->vObjClasses );
+    Vec_IntFreeP( &p->vInitClasses );
     Vec_IntFreeP( &p->vDoms );
     Vec_IntFreeP( &p->vLevels );
     Vec_IntFreeP( &p->vTruths );
@@ -292,6 +297,51 @@ void Gia_ManPrintTents( Gia_Man_t * p )
 
 /**Function*************************************************************
 
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Gia_ManPrintInitClasses( Vec_Int_t * vInits )
+{
+    int i, Value;
+    int Counts[6] = {0};
+    Vec_IntForEachEntry( vInits, Value, i )
+        Counts[Value]++;
+    for ( i = 0; i < 6; i++ )
+        if ( Counts[i] )
+            printf( "%d = %d  ", i, Counts[i] );
+    printf( "  " );
+    printf( "B = %d  ", Counts[0] + Counts[1] );
+    printf( "X = %d  ", Counts[2] + Counts[3] );
+    printf( "Q = %d\n", Counts[4] + Counts[5] );
+    Vec_IntForEachEntry( vInits, Value, i )
+    {
+        Counts[Value]++;
+        if ( Value == 0 )
+            printf( "0" );
+        else if ( Value == 1 )
+            printf( "1" );
+        else if ( Value == 2 )
+            printf( "2" );
+        else if ( Value == 3 )
+            printf( "3" );
+        else if ( Value == 4 )
+            printf( "4" );
+        else if ( Value == 5 )
+            printf( "5" );
+        else assert( 0 );
+    }
+    printf( "\n" );
+    
+}
+
+/**Function*************************************************************
+
   Synopsis    [Prints stats for the AIG.]
 
   Description []
@@ -333,15 +383,38 @@ void Gia_ManPrintChoiceStats( Gia_Man_t * p )
 ***********************************************************************/
 void Gia_ManPrintStats( Gia_Man_t * p, Gps_Par_t * pPars )
 {
+    extern float Gia_ManLevelAve( Gia_Man_t * p );
+#ifdef WIN32
+    SetConsoleTextAttribute( GetStdHandle(STD_OUTPUT_HANDLE), 15 ); // bright
     if ( p->pName )
         Abc_Print( 1, "%-8s : ", p->pName );
+    SetConsoleTextAttribute( GetStdHandle(STD_OUTPUT_HANDLE), 7 );  // normal
+#else
+    if ( p->pName )
+        Abc_Print( 1, "%s%-8s%s : ", "\033[1;37m", p->pName, "\033[0m" );  // bright
+#endif
     Abc_Print( 1, "i/o =%7d/%7d", Gia_ManPiNum(p), Gia_ManPoNum(p) );
     if ( Gia_ManConstrNum(p) )
         Abc_Print( 1, "(c=%d)", Gia_ManConstrNum(p) );
     if ( Gia_ManRegNum(p) )
         Abc_Print( 1, "  ff =%7d", Gia_ManRegNum(p) );
+
+#ifdef WIN32
+    {
+    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    SetConsoleTextAttribute( hConsole, 11 ); // blue
     Abc_Print( 1, "  %s =%8d", p->pMuxes? "nod" : "and", Gia_ManAndNum(p) );
-    Abc_Print( 1, "  lev =%5d", Gia_ManLevelNum(p) ); Vec_IntFreeP( &p->vLevels );
+    SetConsoleTextAttribute( hConsole, 13 ); // magenta
+    Abc_Print( 1, "  lev =%5d", Gia_ManLevelNum(p) ); 
+    Abc_Print( 1, " (%.2f)", Gia_ManLevelAve(p) ); 
+    SetConsoleTextAttribute( hConsole, 7 ); // normal
+    }
+#else
+    Abc_Print( 1, "  %s%s =%8d%s",  "\033[1;36m", p->pMuxes? "nod" : "and", Gia_ManAndNum(p), "\033[0m" ); // blue
+    Abc_Print( 1, "  %slev =%5d%s", "\033[1;35m", Gia_ManLevelNum(p), "\033[0m" ); // magenta
+    Abc_Print( 1, " %s(%.2f)%s",    "\033[1;35m", Gia_ManLevelAve(p), "\033[0m" ); 
+#endif
+    Vec_IntFreeP( &p->vLevels );
     if ( pPars && pPars->fCut )
         Abc_Print( 1, "  cut = %d(%d)", Gia_ManCrossCut(p, 0), Gia_ManCrossCut(p, 1) );
     Abc_Print( 1, "  mem =%5.2f MB", Gia_ManMemory(p)/(1<<20) );
@@ -369,7 +442,7 @@ void Gia_ManPrintStats( Gia_Man_t * p, Gps_Par_t * pPars )
     if ( p->pSibls )
         Gia_ManPrintChoiceStats( p );
     if ( Gia_ManHasMapping(p) )
-        Gia_ManPrintMappingStats( p, pPars && pPars->fDumpFile );
+        Gia_ManPrintMappingStats( p, pPars ? pPars->pDumpFile : NULL );
     if ( pPars && pPars->fNpn && Gia_ManHasMapping(p) && Gia_ManLutSizeMax(p) <= 4 )
         Gia_ManPrintNpnClasses( p );
     if ( p->vPacking )
@@ -384,6 +457,8 @@ void Gia_ManPrintStats( Gia_Man_t * p, Gps_Par_t * pPars )
     Gia_ManPrintFlopClasses( p );
     Gia_ManPrintGateClasses( p );
     Gia_ManPrintObjClasses( p );
+    if ( p->vInitClasses )
+        Gia_ManPrintInitClasses( p->vInitClasses );
     if ( pPars && pPars->fTents )
     {
 /*

@@ -22,6 +22,7 @@
 #include "base/main/mainInt.h"
 #include "aig/saig/saig.h"
 #include "proof/abs/abs.h"
+#include "sat/bmc/bmc.h"
 
 ABC_NAMESPACE_IMPL_START
 
@@ -43,8 +44,6 @@ static int IoCommandReadInit    ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandReadPla     ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandReadTruth   ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandReadVerilog ( Abc_Frame_t * pAbc, int argc, char **argv );
-static int IoCommandReadVer     ( Abc_Frame_t * pAbc, int argc, char **argv );
-static int IoCommandReadVerLib  ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandReadStatus  ( Abc_Frame_t * pAbc, int argc, char **argv );
 
 static int IoCommandWrite       ( Abc_Frame_t * pAbc, int argc, char **argv );
@@ -60,14 +59,13 @@ static int IoCommandWriteBook   ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWriteCellNet( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWriteCnf    ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWriteCnf2   ( Abc_Frame_t * pAbc, int argc, char **argv );
-static int IoCommandWriteCounter( Abc_Frame_t * pAbc, int argc, char **argv );
+static int IoCommandWriteCex    ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWriteDot    ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWriteEqn    ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWriteGml    ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWriteList   ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWritePla    ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWriteVerilog( Abc_Frame_t * pAbc, int argc, char **argv );
-static int IoCommandWriteVerLib ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWriteSortCnf( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWriteTruth  ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWriteTruths ( Abc_Frame_t * pAbc, int argc, char **argv );
@@ -109,8 +107,6 @@ void Io_Init( Abc_Frame_t * pAbc )
     Cmd_CommandAdd( pAbc, "I/O", "read_pla",      IoCommandReadPla,      1 );
     Cmd_CommandAdd( pAbc, "I/O", "read_truth",    IoCommandReadTruth,    1 );
     Cmd_CommandAdd( pAbc, "I/O", "read_verilog",  IoCommandReadVerilog,  1 );
-//    Cmd_CommandAdd( pAbc, "I/O", "read_ver",      IoCommandReadVer,      1 );
-//    Cmd_CommandAdd( pAbc, "I/O", "read_verlib",   IoCommandReadVerLib,   0 );
     Cmd_CommandAdd( pAbc, "I/O", "read_status",   IoCommandReadStatus,   0 );
 
     Cmd_CommandAdd( pAbc, "I/O", "write",         IoCommandWrite,        0 );
@@ -124,7 +120,7 @@ void Io_Init( Abc_Frame_t * pAbc )
     Cmd_CommandAdd( pAbc, "I/O", "write_bench",   IoCommandWriteBench,   0 );
     Cmd_CommandAdd( pAbc, "I/O", "write_book",    IoCommandWriteBook,    0 );
     Cmd_CommandAdd( pAbc, "I/O", "write_cellnet", IoCommandWriteCellNet, 0 );
-    Cmd_CommandAdd( pAbc, "I/O", "write_counter", IoCommandWriteCounter, 0 );
+    Cmd_CommandAdd( pAbc, "I/O", "write_cex",     IoCommandWriteCex,     0 );
     Cmd_CommandAdd( pAbc, "I/O", "write_cnf",     IoCommandWriteCnf,     0 );
     Cmd_CommandAdd( pAbc, "I/O", "&write_cnf",    IoCommandWriteCnf2,    0 );
     Cmd_CommandAdd( pAbc, "I/O", "write_dot",     IoCommandWriteDot,     0 );
@@ -172,12 +168,13 @@ int IoCommandRead( Abc_Frame_t * pAbc, int argc, char ** argv )
     char Command[1000];
     Abc_Ntk_t * pNtk;
     char * pFileName, * pTemp;
-    int c, fCheck;
+    int c, fCheck, fBarBufs;
 
     fCheck = 1;
+    fBarBufs = 0;
     glo_fMapped = 0;
     Extra_UtilGetoptReset();
-    while ( ( c = Extra_UtilGetopt( argc, argv, "mch" ) ) != EOF )
+    while ( ( c = Extra_UtilGetopt( argc, argv, "mcbh" ) ) != EOF )
     {
         switch ( c )
         {
@@ -186,6 +183,9 @@ int IoCommandRead( Abc_Frame_t * pAbc, int argc, char ** argv )
                 break;
             case 'c':
                 fCheck ^= 1;
+                break;
+            case 'b':
+                fBarBufs ^= 1;
                 break;
             case 'h':
                 goto usage;
@@ -216,6 +216,8 @@ int IoCommandRead( Abc_Frame_t * pAbc, int argc, char ** argv )
         sprintf( Command, "read_constr %s", pFileName );
     else if ( !strcmp( Extra_FileNameExtension(pFileName), "c" ) )
         sprintf( Command, "so %s", pFileName );
+    else if ( !strcmp( Extra_FileNameExtension(pFileName), "dsd" ) )
+        sprintf( Command, "dsd_load %s", pFileName );
     if ( Command[0] )
     {
         Cmd_CommandExecute( pAbc, Command );
@@ -228,7 +230,7 @@ int IoCommandRead( Abc_Frame_t * pAbc, int argc, char ** argv )
         return 0;
     }
     // read the file using the corresponding file reader
-    pNtk = Io_Read( pFileName, Io_ReadFileType(pFileName), fCheck );
+    pNtk = Io_Read( pFileName, Io_ReadFileType(pFileName), fCheck, fBarBufs );
     if ( pNtk == NULL )
         return 0;
     if ( Abc_NtkPiNum(pNtk) == 0 )
@@ -243,12 +245,13 @@ int IoCommandRead( Abc_Frame_t * pAbc, int argc, char ** argv )
     return 0;
 
 usage:
-    fprintf( pAbc->Err, "usage: read [-mch] <file>\n" );
+    fprintf( pAbc->Err, "usage: read [-mcbh] <file>\n" );
     fprintf( pAbc->Err, "\t         replaces the current network by the network read from <file>\n" );
     fprintf( pAbc->Err, "\t         by calling the parser that matches the extension of <file>\n" );
     fprintf( pAbc->Err, "\t         (to read a hierarchical design, use \"read_hie\")\n" );
     fprintf( pAbc->Err, "\t-m     : toggle reading mapped Verilog [default = %s]\n", glo_fMapped? "yes":"no" );
     fprintf( pAbc->Err, "\t-c     : toggle network check after reading [default = %s]\n", fCheck? "yes":"no" );
+    fprintf( pAbc->Err, "\t-b     : toggle reading barrier buffers [default = %s]\n", fBarBufs? "yes":"no" );
     fprintf( pAbc->Err, "\t-h     : prints the command summary\n" );
     fprintf( pAbc->Err, "\tfile   : the name of a file to read\n" );
     return 1;
@@ -292,7 +295,7 @@ int IoCommandReadAiger( Abc_Frame_t * pAbc, int argc, char ** argv )
     // get the input file name
     pFileName = argv[globalUtilOptind];
     // read the file using the corresponding file reader
-    pNtk = Io_Read( pFileName, IO_FILE_AIGER, fCheck );
+    pNtk = Io_Read( pFileName, IO_FILE_AIGER, fCheck, 0 );
     if ( pNtk == NULL )
         return 1;
     // replace the current network
@@ -347,7 +350,7 @@ int IoCommandReadBaf( Abc_Frame_t * pAbc, int argc, char ** argv )
     // get the input file name
     pFileName = argv[globalUtilOptind];
     // read the file using the corresponding file reader
-    pNtk = Io_Read( pFileName, IO_FILE_BAF, fCheck );
+    pNtk = Io_Read( pFileName, IO_FILE_BAF, fCheck, 0 );
     if ( pNtk == NULL )
         return 1;
     // replace the current network
@@ -402,7 +405,7 @@ int IoCommandReadBblif( Abc_Frame_t * pAbc, int argc, char ** argv )
     // get the input file name
     pFileName = argv[globalUtilOptind];
     // read the file using the corresponding file reader
-    pNtk = Io_Read( pFileName, IO_FILE_BBLIF, fCheck );
+    pNtk = Io_Read( pFileName, IO_FILE_BBLIF, fCheck, 0 );
     if ( pNtk == NULL )
         return 1;
     // replace the current network
@@ -437,19 +440,24 @@ int IoCommandReadBlif( Abc_Frame_t * pAbc, int argc, char ** argv )
     int fReadAsAig;
     int fCheck;
     int fUseNewParser;
+    int fSaveNames;
     int c;
     extern Abc_Ntk_t * Io_ReadBlifAsAig( char * pFileName, int fCheck );
 
     fCheck = 1;
     fReadAsAig = 0;
     fUseNewParser = 1;
+    fSaveNames = 0;
     Extra_UtilGetoptReset();
-    while ( ( c = Extra_UtilGetopt( argc, argv, "nach" ) ) != EOF )
+    while ( ( c = Extra_UtilGetopt( argc, argv, "nmach" ) ) != EOF )
     {
         switch ( c )
         {
             case 'n':
                 fUseNewParser ^= 1;
+                break;
+            case 'm':
+                fSaveNames ^= 1;
                 break;
             case 'a':
                 fReadAsAig ^= 1;
@@ -471,14 +479,18 @@ int IoCommandReadBlif( Abc_Frame_t * pAbc, int argc, char ** argv )
     if ( fReadAsAig )
         pNtk = Io_ReadBlifAsAig( pFileName, fCheck );
     else if ( fUseNewParser )
-        pNtk = Io_Read( pFileName, IO_FILE_BLIF, fCheck );
+        pNtk = Io_Read( pFileName, IO_FILE_BLIF, fCheck, 0 );
     else
     {
         Abc_Ntk_t * pTemp;
         pNtk = Io_ReadBlif( pFileName, fCheck );
         if ( pNtk == NULL )
             return 1;
+        if ( fSaveNames )
+            Abc_NtkStartNameIds( pNtk );
         pNtk = Abc_NtkToLogic( pTemp = pNtk );
+        if ( fSaveNames )
+            Abc_NtkTransferNameIds( pTemp, pNtk );
         Abc_NtkDelete( pTemp );
     }
 
@@ -490,10 +502,11 @@ int IoCommandReadBlif( Abc_Frame_t * pAbc, int argc, char ** argv )
     return 0;
 
 usage:
-    fprintf( pAbc->Err, "usage: read_blif [-nach] <file>\n" );
+    fprintf( pAbc->Err, "usage: read_blif [-nmach] <file>\n" );
     fprintf( pAbc->Err, "\t         reads the network in binary BLIF format\n" );
     fprintf( pAbc->Err, "\t         (if this command does not work, try \"read\")\n" );
     fprintf( pAbc->Err, "\t-n     : toggle using old BLIF parser without hierarchy support [default = %s]\n", !fUseNewParser? "yes":"no" );
+    fprintf( pAbc->Err, "\t-m     : toggle saving original circuit names into a file [default = %s]\n", fSaveNames? "yes":"no" );
     fprintf( pAbc->Err, "\t-a     : toggle creating AIG while reading the file [default = %s]\n", fReadAsAig? "yes":"no" );
     fprintf( pAbc->Err, "\t-c     : toggle network check after reading [default = %s]\n", fCheck? "yes":"no" );
     fprintf( pAbc->Err, "\t-h     : prints the command summary\n" );
@@ -539,7 +552,7 @@ int IoCommandReadBlifMv( Abc_Frame_t * pAbc, int argc, char ** argv )
     // get the input file name
     pFileName = argv[globalUtilOptind];
     // read the file using the corresponding file reader
-    pNtk = Io_Read( pFileName, IO_FILE_BLIFMV, fCheck );
+    pNtk = Io_Read( pFileName, IO_FILE_BLIFMV, fCheck, 0 );
     if ( pNtk == NULL )
         return 1;
     // replace the current network
@@ -595,7 +608,7 @@ int IoCommandReadBench( Abc_Frame_t * pAbc, int argc, char ** argv )
     // get the input file name
     pFileName = argv[globalUtilOptind];
     // read the file using the corresponding file reader
-    pNtk = Io_Read( pFileName, IO_FILE_BENCH, fCheck );
+    pNtk = Io_Read( pFileName, IO_FILE_BENCH, fCheck, 0 );
     if ( pNtk == NULL )
         return 1;
     // replace the current network
@@ -712,7 +725,7 @@ int IoCommandReadEdif( Abc_Frame_t * pAbc, int argc, char ** argv )
     // get the input file name
     pFileName = argv[globalUtilOptind];
     // read the file using the corresponding file reader
-    pNtk = Io_Read( pFileName, IO_FILE_EDIF, fCheck );
+    pNtk = Io_Read( pFileName, IO_FILE_EDIF, fCheck, 0 );
     if ( pNtk == NULL )
         return 1;
     // replace the current network
@@ -767,7 +780,7 @@ int IoCommandReadEqn( Abc_Frame_t * pAbc, int argc, char ** argv )
     // get the input file name
     pFileName = argv[globalUtilOptind];
     // read the file using the corresponding file reader
-    pNtk = Io_Read( pFileName, IO_FILE_EQN, fCheck );
+    pNtk = Io_Read( pFileName, IO_FILE_EQN, fCheck, 0 );
     if ( pNtk == NULL )
         return 1;
     // replace the current network
@@ -908,7 +921,7 @@ int IoCommandReadPla( Abc_Frame_t * pAbc, int argc, char ** argv )
         Abc_NtkDelete( pTemp );
     }
     else
-        pNtk = Io_Read( pFileName, IO_FILE_PLA, fCheck );
+        pNtk = Io_Read( pFileName, IO_FILE_PLA, fCheck, 0 );
     if ( pNtk == NULL )
         return 1;
     // replace the current network
@@ -1013,13 +1026,14 @@ int IoCommandReadVerilog( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
     Abc_Ntk_t * pNtk;
     char * pFileName;
-    int fCheck;
+    int fCheck, fBarBufs;
     int c;
 
     fCheck = 1;
+    fBarBufs = 0;
     glo_fMapped = 0;
     Extra_UtilGetoptReset();
-    while ( ( c = Extra_UtilGetopt( argc, argv, "mch" ) ) != EOF )
+    while ( ( c = Extra_UtilGetopt( argc, argv, "mcbh" ) ) != EOF )
     {
         switch ( c )
         {
@@ -1028,6 +1042,9 @@ int IoCommandReadVerilog( Abc_Frame_t * pAbc, int argc, char ** argv )
                 break;
             case 'c':
                 fCheck ^= 1;
+                break;
+            case 'b':
+                fBarBufs ^= 1;
                 break;
             case 'h':
                 goto usage;
@@ -1040,7 +1057,7 @@ int IoCommandReadVerilog( Abc_Frame_t * pAbc, int argc, char ** argv )
     // get the input file name
     pFileName = argv[globalUtilOptind];
     // read the file using the corresponding file reader
-    pNtk = Io_Read( pFileName, IO_FILE_VERILOG, fCheck );
+    pNtk = Io_Read( pFileName, IO_FILE_VERILOG, fCheck, fBarBufs );
     if ( pNtk == NULL )
         return 1;
     // replace the current network
@@ -1049,190 +1066,15 @@ int IoCommandReadVerilog( Abc_Frame_t * pAbc, int argc, char ** argv )
     return 0;
 
 usage:
-    fprintf( pAbc->Err, "usage: read_verilog [-mch] <file>\n" );
+    fprintf( pAbc->Err, "usage: read_verilog [-mcbh] <file>\n" );
     fprintf( pAbc->Err, "\t         reads the network in Verilog (IWLS 2002/2005 subset)\n" );
     fprintf( pAbc->Err, "\t-m     : toggle reading mapped Verilog [default = %s]\n", glo_fMapped? "yes":"no" );
     fprintf( pAbc->Err, "\t-c     : toggle network check after reading [default = %s]\n", fCheck? "yes":"no" );
+    fprintf( pAbc->Err, "\t-b     : toggle reading barrier buffers [default = %s]\n", fBarBufs? "yes":"no" );
     fprintf( pAbc->Err, "\t-h     : prints the command summary\n" );
     fprintf( pAbc->Err, "\tfile   : the name of a file to read\n" );
     return 1;
 }
-
-/**Function*************************************************************
-
-  Synopsis    []
-
-  Description []
-               
-  SideEffects []
-
-  SeeAlso     []
-
-***********************************************************************/
-int IoCommandReadVer( Abc_Frame_t * pAbc, int argc, char ** argv )
-{
-    Abc_Ntk_t * pNtk, * pNtkNew;
-    Abc_Lib_t * pDesign;
-    char * pFileName;
-    FILE * pFile;
-    int fCheck;
-    int c;
-    extern Abc_Ntk_t * Abc_LibDeriveAig( Abc_Ntk_t * pNtk, Abc_Lib_t * pLib );
-    extern Abc_Lib_t * Ver_ParseFile( char * pFileName, Abc_Lib_t * pGateLib, int fCheck, int fUseMemMan );
-
-    printf( "Stand-alone structural Verilog reader is available as command \"read_verilog\".\n" );
-    return 0;
-
-    fCheck = 1;
-    Extra_UtilGetoptReset();
-    while ( ( c = Extra_UtilGetopt( argc, argv, "ch" ) ) != EOF )
-    {
-        switch ( c )
-        {
-            case 'c':
-                fCheck ^= 1;
-                break;
-            case 'h':
-                goto usage;
-            default:
-                goto usage;
-        }
-    }
-
-    if ( argc != globalUtilOptind + 1 )
-    {
-        goto usage;
-    }
-
-    // get the input file name
-    pFileName = argv[globalUtilOptind];
-    if ( (pFile = fopen( pFileName, "r" )) == NULL )
-    {
-        fprintf( pAbc->Err, "Cannot open input file \"%s\". ", pFileName );
-        if ( (pFileName = Extra_FileGetSimilarName( pFileName, ".blif", ".bench", ".pla", ".baf", ".aig" )) )
-            fprintf( pAbc->Err, "Did you mean \"%s\"?", pFileName );
-        fprintf( pAbc->Err, "\n" );
-        return 1;
-    }
-    fclose( pFile );
-
-    // set the new network
-    pDesign = Ver_ParseFile( pFileName, (Abc_Lib_t *)Abc_FrameReadLibVer(), fCheck, 1 );
-    if ( pDesign == NULL )
-    {
-        fprintf( pAbc->Err, "Reading network from the verilog file has failed.\n" );
-        return 1;
-    }
-
-    // derive root design
-    pNtk = Abc_LibDeriveRoot( pDesign );
-    Abc_LibFree( pDesign, NULL );
-    if ( pNtk == NULL )
-    {
-        fprintf( pAbc->Err, "Deriving root module has failed.\n" );
-        return 1;
-    }
-
-    // derive the AIG network from this design
-    pNtkNew = Abc_LibDeriveAig( pNtk, (Abc_Lib_t *)Abc_FrameReadLibVer() );
-    Abc_NtkDelete( pNtk );
-    if ( pNtkNew == NULL )
-    {
-        fprintf( pAbc->Err, "Converting root module to AIG has failed.\n" );
-        return 1;
-    }
-    // replace the current network
-    Abc_FrameReplaceCurrentNetwork( pAbc, pNtkNew );
-    Abc_FrameClearVerifStatus( pAbc );
-    return 0;
-
-usage:
-    fprintf( pAbc->Err, "usage: read_ver [-ch] <file>\n" );
-    fprintf( pAbc->Err, "\t         reads a network in structural verilog (using current library)\n" );
-    fprintf( pAbc->Err, "\t-c     : toggle network check after reading [default = %s]\n", fCheck? "yes":"no" );
-    fprintf( pAbc->Err, "\t-h     : prints the command summary\n" );
-    fprintf( pAbc->Err, "\tfile   : the name of a file to read\n" );
-    return 1;
-}
-
-/**Function*************************************************************
-
-  Synopsis    []
-
-  Description []
-               
-  SideEffects []
-
-  SeeAlso     []
-
-***********************************************************************/
-int IoCommandReadVerLib( Abc_Frame_t * pAbc, int argc, char ** argv )
-{
-    Abc_Lib_t * pLibrary;
-    char * pFileName;
-    FILE * pFile;
-    int fCheck;
-    int c;
-    extern Abc_Lib_t * Ver_ParseFile( char * pFileName, Abc_Lib_t * pGateLib, int fCheck, int fUseMemMan );
-
-    fCheck = 1;
-    Extra_UtilGetoptReset();
-    while ( ( c = Extra_UtilGetopt( argc, argv, "ch" ) ) != EOF )
-    {
-        switch ( c )
-        {
-            case 'c':
-                fCheck ^= 1;
-                break;
-            case 'h':
-                goto usage;
-            default:
-                goto usage;
-        }
-    }
-
-    if ( argc != globalUtilOptind + 1 )
-    {
-        goto usage;
-    }
-
-    // get the input file name
-    pFileName = argv[globalUtilOptind];
-    if ( (pFile = fopen( pFileName, "r" )) == NULL )
-    {
-        fprintf( pAbc->Err, "Cannot open input file \"%s\". ", pFileName );
-        if ( (pFileName = Extra_FileGetSimilarName( pFileName, ".blif", ".bench", ".pla", ".baf", ".aig" )) )
-            fprintf( pAbc->Err, "Did you mean \"%s\"?", pFileName );
-        fprintf( pAbc->Err, "\n" );
-        return 1;
-    }
-    fclose( pFile );
-
-    // set the new network
-    pLibrary = Ver_ParseFile( pFileName, NULL, fCheck, 0 );
-    if ( pLibrary == NULL )
-    {
-        fprintf( pAbc->Err, "Reading library from the verilog file has failed.\n" );
-        return 1;
-    }
-    printf( "The library contains %d gates.\n", st__count(pLibrary->tModules) );
-    // free old library
-    if ( Abc_FrameReadLibVer() )
-        Abc_LibFree( (Abc_Lib_t *)Abc_FrameReadLibVer(), NULL );
-    // read new library
-    Abc_FrameSetLibVer( pLibrary );
-    Abc_FrameClearVerifStatus( pAbc );
-    return 0;
-
-usage:
-    fprintf( pAbc->Err, "usage: read_verlib [-ch] <file>\n" );
-    fprintf( pAbc->Err, "\t         reads a gate library in structural verilog\n" );
-    fprintf( pAbc->Err, "\t-c     : toggle network check after reading [default = %s]\n", fCheck? "yes":"no" );
-    fprintf( pAbc->Err, "\t-h     : prints the command summary\n" );
-    fprintf( pAbc->Err, "\tfile   : the name of a file to read\n" );
-    return 1;
-}
-
 
 /**Function*************************************************************
 
@@ -1330,6 +1172,8 @@ int IoCommandWrite( Abc_Frame_t * pAbc, int argc, char **argv )
         sprintf( Command, "write_genlib %s", pFileName );
     else if ( !strcmp( Extra_FileNameExtension(pFileName), "lib" ) )
         sprintf( Command, "write_liberty %s", pFileName );
+    else if ( !strcmp( Extra_FileNameExtension(pFileName), "dsd" ) )
+        sprintf( Command, "dsd_save %s", pFileName );
     if ( Command[0] )
     {
         Cmd_CommandExecute( pAbc, Command );
@@ -2157,18 +2001,20 @@ ABC_NAMESPACE_IMPL_START
   SeeAlso     []
 
 ***********************************************************************/
-int IoCommandWriteCounter( Abc_Frame_t * pAbc, int argc, char **argv )
+int IoCommandWriteCex( Abc_Frame_t * pAbc, int argc, char **argv )
 {
     Abc_Ntk_t * pNtk;
     char * pFileName;
     int c, fNames  = 0;
     int fMinimize  = 0;
+    int fUseOldMin = 0;
+    int fCheckCex  = 0;
     int forceSeq   = 0;
     int fPrintFull = 0;
     int fVerbose   = 0;
 
     Extra_UtilGetoptReset();
-    while ( ( c = Extra_UtilGetopt( argc, argv, "snmfvh" ) ) != EOF )
+    while ( ( c = Extra_UtilGetopt( argc, argv, "snmocfvh" ) ) != EOF )
     {
         switch ( c )
         {
@@ -2180,6 +2026,12 @@ int IoCommandWriteCounter( Abc_Frame_t * pAbc, int argc, char **argv )
                 break;
             case 'm':
                 fMinimize ^= 1;
+                break;
+            case 'o':
+                fUseOldMin ^= 1;
+                break;
+            case 'c':
+                fCheckCex ^= 1;
                 break;
             case 'f':
                 fPrintFull ^= 1;
@@ -2222,7 +2074,7 @@ int IoCommandWriteCounter( Abc_Frame_t * pAbc, int argc, char **argv )
         Abc_NtkForEachLatch( pNtk, pObj, i )
             if ( !Abc_LatchIsInit0(pObj) )
             {
-                fprintf( stdout, "IoCommandWriteCounter(): The init-state should be all-0 for counter-example to work.\n" );
+                fprintf( stdout, "IoCommandWriteCex(): The init-state should be all-0 for counter-example to work.\n" );
                 fprintf( stdout, "Run commands \"undc\" and \"zero\" and then rerun the equivalence check.\n" );
                 return 1;
             }
@@ -2230,7 +2082,7 @@ int IoCommandWriteCounter( Abc_Frame_t * pAbc, int argc, char **argv )
         pFile = fopen( pFileName, "w" );
         if ( pFile == NULL )
         {
-            fprintf( stdout, "IoCommandWriteCounter(): Cannot open the output file \"%s\".\n", pFileName );
+            fprintf( stdout, "IoCommandWriteCex(): Cannot open the output file \"%s\".\n", pFileName );
             return 1;
         }
         if ( fPrintFull )
@@ -2253,9 +2105,14 @@ int IoCommandWriteCounter( Abc_Frame_t * pAbc, int argc, char **argv )
             {
                 extern Aig_Man_t * Abc_NtkToDar( Abc_Ntk_t * pNtk, int fExors, int fRegisters );
                 Aig_Man_t * pAig = Abc_NtkToDar( pNtk, 0, 1 );
-                pCare = Saig_ManCbaFindCexCareBits( pAig, pCex, 0, fVerbose );
-                if ( pCare == NULL )
-                    printf( "Counter-example minimization has failed.\n" );
+                if ( fUseOldMin )
+                {
+                    pCare = Saig_ManCbaFindCexCareBits( pAig, pCex, 0, fVerbose );
+                    if ( fCheckCex )
+                        Bmc_CexCareVerify( pAig, pCex, pCare, fVerbose );
+                }
+                else
+                    pCare = Bmc_CexCareMinimize( pAig, pCex, fCheckCex, fVerbose );
                 Aig_ManStop( pAig );
             }
             // output flop values (unaffected by the minimization)
@@ -2285,7 +2142,7 @@ int IoCommandWriteCounter( Abc_Frame_t * pAbc, int argc, char **argv )
         int i;
         if ( pFile == NULL )
         {
-            fprintf( stdout, "IoCommandWriteCounter(): Cannot open the output file \"%s\".\n", pFileName );
+            fprintf( stdout, "IoCommandWriteCex(): Cannot open the output file \"%s\".\n", pFileName );
             return 1;
         }
         if ( fNames )
@@ -2307,19 +2164,20 @@ int IoCommandWriteCounter( Abc_Frame_t * pAbc, int argc, char **argv )
     return 0;
 
 usage:
-    fprintf( pAbc->Err, "usage: write_counter [-snmfvh] <file>\n" );
+    fprintf( pAbc->Err, "usage: write_cex [-snmocfvh] <file>\n" );
     fprintf( pAbc->Err, "\t         saves counter-example derived by \"sat\", \"iprove\", or \"dprove\"\n" );
     fprintf( pAbc->Err, "\t         the file contains values for each PI in the natural order\n" );
     fprintf( pAbc->Err, "\t-s     : always report a sequential ctrex (cycle 0 for comb) [default = %s]\n", forceSeq? "yes": "no" );
     fprintf( pAbc->Err, "\t-n     : write input names into the file [default = %s]\n", fNames? "yes": "no" );
     fprintf( pAbc->Err, "\t-m     : minimize counter-example by dropping don't-care values [default = %s]\n", fMinimize? "yes": "no" );
+    fprintf( pAbc->Err, "\t-o     : use old counter-example minimization algorithm [default = %s]\n", fUseOldMin? "yes": "no" );
+    fprintf( pAbc->Err, "\t-c     : check generated counter-example using ternary simulation [default = %s]\n", fCheckCex? "yes": "no" );
     fprintf( pAbc->Err, "\t-f     : enable printing flop values in each timeframe [default = %s].\n", fPrintFull? "yes": "no" );  
     fprintf( pAbc->Err, "\t-v     : enable verbose output [default = %s].\n", fVerbose? "yes": "no" );  
     fprintf( pAbc->Err, "\t-h     : print the help massage\n" );
     fprintf( pAbc->Err, "\tfile   : the name of the file to write\n" );
     return 1;
 }
-
 
 /**Function*************************************************************
 
@@ -2572,57 +2430,6 @@ int IoCommandWriteVerilog( Abc_Frame_t * pAbc, int argc, char **argv )
 usage:
     fprintf( pAbc->Err, "usage: write_verilog [-h] <file>\n" );
     fprintf( pAbc->Err, "\t         writes the current network in Verilog format\n" );
-    fprintf( pAbc->Err, "\t-h     : print the help massage\n" );
-    fprintf( pAbc->Err, "\tfile   : the name of the file to write\n" );
-    return 1;
-}
-
-/**Function*************************************************************
-
-  Synopsis    []
-
-  Description []
-               
-  SideEffects []
-
-  SeeAlso     []
-
-***********************************************************************/
-int IoCommandWriteVerLib( Abc_Frame_t * pAbc, int argc, char **argv )
-{
-    Abc_Lib_t * pLibrary;
-    char * pFileName;
-    int c;
-    extern void Io_WriteVerilogLibrary( Abc_Lib_t * pLibrary, char * pFileName );
-
-    Extra_UtilGetoptReset();
-    while ( ( c = Extra_UtilGetopt( argc, argv, "h" ) ) != EOF )
-    {
-        switch ( c )
-        {
-            case 'h':
-                goto usage;
-            default:
-                goto usage;
-        }
-    }
-    if ( argc != globalUtilOptind + 1 )
-        goto usage;
-    // get the input file name
-    pFileName = argv[globalUtilOptind];
-    // derive the netlist
-    pLibrary = (Abc_Lib_t *)Abc_FrameReadLibVer();
-    if ( pLibrary == NULL )
-    {
-        fprintf( pAbc->Out, "Verilog library is not specified.\n" );
-        return 0;
-    }
-//    Io_WriteVerilogLibrary( pLibrary, pFileName );
-    return 0;
-
-usage:
-    fprintf( pAbc->Err, "usage: write_verlib [-h] <file>\n" );
-    fprintf( pAbc->Err, "\t         writes the current verilog library\n" );
     fprintf( pAbc->Err, "\t-h     : print the help massage\n" );
     fprintf( pAbc->Err, "\tfile   : the name of the file to write\n" );
     return 1;

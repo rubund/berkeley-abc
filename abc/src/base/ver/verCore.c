@@ -51,7 +51,7 @@ typedef enum {
     VER_GATE_NOT
 } Ver_GateType_t;
 
-static Ver_Man_t * Ver_ParseStart( char * pFileName, Abc_Lib_t * pGateLib );
+static Ver_Man_t * Ver_ParseStart( char * pFileName, Abc_Des_t * pGateLib );
 static void Ver_ParseStop( Ver_Man_t * p );
 static void Ver_ParseFreeData( Ver_Man_t * p );
 static void Ver_ParseInternal( Ver_Man_t * p );
@@ -101,7 +101,7 @@ struct Ver_Bundle_t_
   SeeAlso     []
 
 ***********************************************************************/
-Ver_Man_t * Ver_ParseStart( char * pFileName, Abc_Lib_t * pGateLib )
+Ver_Man_t * Ver_ParseStart( char * pFileName, Abc_Des_t * pGateLib )
 {
     Ver_Man_t * p;
     p = ABC_ALLOC( Ver_Man_t, 1 );
@@ -119,7 +119,7 @@ Ver_Man_t * Ver_ParseStart( char * pFileName, Abc_Lib_t * pGateLib )
     p->vStackOp  = Vec_IntAlloc( 100 );
     p->vPerm     = Vec_IntAlloc( 100 );
     // create the design library and assign the technology library
-    p->pDesign   = Abc_LibCreate( pFileName );
+    p->pDesign   = Abc_DesCreate( pFileName );
     p->pDesign->pLibrary = pGateLib;
     // derive library from SCL
 //    if ( Abc_FrameReadLibScl() )
@@ -162,10 +162,10 @@ void Ver_ParseStop( Ver_Man_t * p )
   SeeAlso     []
 
 ***********************************************************************/
-Abc_Lib_t * Ver_ParseFile( char * pFileName, Abc_Lib_t * pGateLib, int fCheck, int fUseMemMan )
+Abc_Des_t * Ver_ParseFile( char * pFileName, Abc_Des_t * pGateLib, int fCheck, int fUseMemMan )
 {
     Ver_Man_t * p;
-    Abc_Lib_t * pDesign;
+    Abc_Des_t * pDesign;
     // start the parser
     p = Ver_ParseStart( pFileName, pGateLib );
     p->fMapped    = glo_fMapped;
@@ -259,7 +259,7 @@ void Ver_ParseFreeData( Ver_Man_t * p )
 {
     if ( p->pDesign )
     {
-        Abc_LibFree( p->pDesign, NULL );
+        Abc_DesFree( p->pDesign, NULL );
         p->pDesign = NULL;
     }
 }
@@ -302,7 +302,7 @@ Abc_Ntk_t * Ver_ParseFindOrCreateNetwork( Ver_Man_t * pMan, char * pName )
 {
     Abc_Ntk_t * pNtkNew;
     // check if the network exists
-    if ( (pNtkNew = Abc_LibFindModelByName( pMan->pDesign, pName )) )
+    if ( (pNtkNew = Abc_DesFindModelByName( pMan->pDesign, pName )) )
         return pNtkNew;
 //printf( "Creating network %s.\n", pName );
     // create new network
@@ -310,7 +310,7 @@ Abc_Ntk_t * Ver_ParseFindOrCreateNetwork( Ver_Man_t * pMan, char * pName )
     pNtkNew->pName = Extra_UtilStrsav( pName );
     pNtkNew->pSpec = NULL;
     // add module to the design
-    Abc_LibAddModel( pMan->pDesign, pNtkNew );
+    Abc_DesAddModel( pMan->pDesign, pNtkNew );
     return pNtkNew;
 }
 
@@ -1743,12 +1743,6 @@ int Ver_ParseBox( Ver_Man_t * pMan, Abc_Ntk_t * pNtk, Abc_Ntk_t * pNtkBox )
     pNode->pCopy = (Abc_Obj_t *)vBundles;
     while ( 1 )
     {
-/*
-        if ( Ver_StreamGetLineNumber(pMan->pReader) == 5967 )
-        {
-           int x = 0;
-        }
-*/
         // allocate the bundle (formal name + array of actual nets)
         pBundle = ABC_ALLOC( Ver_Bundle_t, 1 );
         pBundle->pNameFormal = NULL;
@@ -2073,6 +2067,21 @@ int Ver_ParseConnectBox( Ver_Man_t * pMan, Abc_Obj_t * pBox )
     Abc_NtkForEachPo( pNtkBox, pTerm, i )
         Abc_ObjFanin0(pTerm)->pCopy = NULL;
 */
+
+    // check the number of actual nets is the same as the number of formal nets
+    if ( Vec_PtrSize(vBundles) > Abc_NtkPiNum(pNtkBox) + Abc_NtkPoNum(pNtkBox) )
+    {
+        sprintf( pMan->sError, "The number of actual IOs (%d) is bigger than the number of formal IOs (%d) when instantiating network %s in box %s.", 
+            Vec_PtrSize(vBundles), Abc_NtkPiNum(pNtkBox) + Abc_NtkPoNum(pNtkBox), pNtkBox->pName, Abc_ObjName(pBox) );
+        // free the bundling
+        Vec_PtrForEachEntry( Ver_Bundle_t *, vBundles, pBundle, k )
+            Ver_ParseFreeBundle( pBundle );
+        Vec_PtrFree( vBundles );
+        pBox->pCopy = NULL;
+        Ver_ParsePrintErrorMessage( pMan );
+        return 0;
+    }
+
     // check if some of them do not have formal names
     Vec_PtrForEachEntry( Ver_Bundle_t *, vBundles, pBundle, k )
         if ( pBundle->pNameFormal == NULL )
@@ -2090,6 +2099,11 @@ int Ver_ParseConnectBox( Ver_Man_t * pMan, Abc_Obj_t * pBox )
         {
             sprintf( pMan->sError, "The number of actual IOs (%d) is different from the number of formal IOs (%d) when instantiating network %s in box %s.", 
                 Vec_PtrSize(vBundles), Abc_NtkPiNum(pNtkBox) + Abc_NtkPoNum(pNtkBox), pNtkBox->pName, Abc_ObjName(pBox) );
+            // free the bundling
+            Vec_PtrForEachEntry( Ver_Bundle_t *, vBundles, pBundle, k )
+                Ver_ParseFreeBundle( pBundle );
+            Vec_PtrFree( vBundles );
+            pBox->pCopy = NULL;
             Ver_ParsePrintErrorMessage( pMan );
             return 0;
         }
@@ -2235,6 +2249,11 @@ int Ver_ParseConnectBox( Ver_Man_t * pMan, Abc_Obj_t * pBox )
             {
                 sprintf( pMan->sError, "It looks like formal output %s is driving a constant net (%s) when instantiating network %s in box %s.", 
                     pBundle->pNameFormal, Abc_ObjName(pNetAct), pNtkBox->pName, Abc_ObjName(pBox) );
+                // free the bundling
+                Vec_PtrForEachEntry( Ver_Bundle_t *, vBundles, pBundle, k )
+                    Ver_ParseFreeBundle( pBundle );
+                Vec_PtrFree( vBundles );
+                pBox->pCopy = NULL;
                 Ver_ParsePrintErrorMessage( pMan );
                 return 0;
             }
@@ -2826,13 +2845,14 @@ void Ver_ParsePrintLog( Ver_Man_t * pMan )
 ***********************************************************************/
 int Ver_ParseAttachBoxes( Ver_Man_t * pMan )
 {
+    int fPrintLog = 0;
     Abc_Ntk_t * pNtk = NULL;
     Ver_Bundle_t * pBundle;
     Vec_Ptr_t * vUndefs;
     int i, RetValue, Counter, nMaxBoxSize;
 
     // print the log file
-    if ( pMan->pDesign->vModules && Vec_PtrSize(pMan->pDesign->vModules) > 1 )
+    if ( fPrintLog && pMan->pDesign->vModules && Vec_PtrSize(pMan->pDesign->vModules) > 1 )
         Ver_ParsePrintLog( pMan );
 
     // connect defined boxes

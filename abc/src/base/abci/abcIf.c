@@ -113,7 +113,7 @@ if ( pIfMan->pPars->fVerbose )
 ***********************************************************************/
 Abc_Ntk_t * Abc_NtkIf( Abc_Ntk_t * pNtk, If_Par_t * pPars )
 {
-    Abc_Ntk_t * pNtkNew;
+    Abc_Ntk_t * pNtkNew, * pTemp;
     If_Man_t * pIfMan;
 
     assert( Abc_NtkIsStrash(pNtk) );
@@ -137,6 +137,17 @@ Abc_Ntk_t * Abc_NtkIf( Abc_Ntk_t * pNtk, If_Par_t * pPars )
     if ( pPars->fPower )
         Abc_NtkIfComputeSwitching( pNtk, pIfMan );
 
+    // create DSD manager
+    if ( pPars->fUseDsd )
+    {
+        If_DsdMan_t * p = (If_DsdMan_t *)Abc_FrameReadManDsd();
+        assert( pPars->nLutSize <= If_DsdManVarNum(p) );
+        assert( (pPars->pLutStruct == NULL && If_DsdManLutSize(p) == 0) || (pPars->pLutStruct && pPars->pLutStruct[0] - '0' == If_DsdManLutSize(p)) );
+        pIfMan->pIfDsdMan = (If_DsdMan_t *)Abc_FrameReadManDsd();
+        if ( pPars->fDsdBalance )
+            If_DsdManAllocIsops( pIfMan->pIfDsdMan, pPars->nLutSize );
+    }
+
     // perform FPGA mapping
     if ( !If_ManPerformMapping( pIfMan ) )
     {
@@ -149,7 +160,12 @@ Abc_Ntk_t * Abc_NtkIf( Abc_Ntk_t * pNtk, If_Par_t * pPars )
     if ( pNtkNew == NULL )
         return NULL;
     If_ManStop( pIfMan );
-    if ( pPars->fBidec && pPars->nLutSize <= 8 )
+    if ( pPars->fDelayOpt || pPars->fDsdBalance || pPars->fUserRecLib )
+    {
+        pNtkNew = Abc_NtkStrash( pTemp = pNtkNew, 0, 0, 0 );
+        Abc_NtkDelete( pTemp );
+    }
+    else if ( pPars->fBidec && pPars->nLutSize <= 8 )
         Abc_NtkBidecResyn( pNtkNew, 0 );
 
     // duplicate EXDC
@@ -335,10 +351,9 @@ Abc_Ntk_t * Abc_NtkFromIf( If_Man_t * pIfMan, Abc_Ntk_t * pNtk )
     return pNtkNew;
 }
 
-
 /**Function*************************************************************
 
-  Synopsis    [Inserts the entry while sorting them by delay.]
+  Synopsis    [Rebuilds GIA from mini AIG.]
 
   Description []
                
@@ -347,57 +362,51 @@ Abc_Ntk_t * Abc_NtkFromIf( If_Man_t * pIfMan, Abc_Ntk_t * pNtk )
   SeeAlso     []
 
 ***********************************************************************/
-Hop_Obj_t * Abc_NodeTruthToHopInt( Hop_Man_t * pMan, Vec_Wrd_t * vAnds, int nVars )
+Hop_Obj_t * Abc_NodeBuildFromMiniInt( Hop_Man_t * pMan, Vec_Int_t * vAig, int nLeaves )
 {
-    Vec_Ptr_t * vResults;
-    Hop_Obj_t * pRes0, * pRes1, * pRes = NULL;
-    If_And_t This;
-    word Entry;
-    int i;
-    if ( Vec_WrdSize(vAnds) == 0 )
-        return Hop_ManConst0(pMan);
-    if ( Vec_WrdSize(vAnds) == 1 && Vec_WrdEntry(vAnds,0) == 0 )
-        return Hop_ManConst1(pMan);
-    vResults = Vec_PtrAlloc( Vec_WrdSize(vAnds) );
-    for ( i = 0; i < nVars; i++ )
-        Vec_PtrPush( vResults, Hop_IthVar(pMan, i) );
-    Vec_WrdForEachEntryStart( vAnds, Entry, i, nVars )
+    assert( Vec_IntSize(vAig) > 0 );
+    assert( Vec_IntEntryLast(vAig) < 2 );
+    if ( Vec_IntSize(vAig) == 1 ) // const
     {
-        This  = If_WrdToAnd( Entry );
-        pRes0 = Hop_NotCond( (Hop_Obj_t *)Vec_PtrEntry(vResults, This.iFan0), This.fCompl0 ); 
-        pRes1 = Hop_NotCond( (Hop_Obj_t *)Vec_PtrEntry(vResults, This.iFan1), This.fCompl1 ); 
-        pRes  = Hop_And( pMan, pRes0, pRes1 );
-        Vec_PtrPush( vResults, pRes );
-/*
-        printf( "fan0 = %c%d  fan1 = %c%d  Del = %d\n", 
-            This.fCompl0? '-':'+', This.iFan0, 
-            This.fCompl1? '-':'+', This.iFan1, 
-            This.Delay );
-*/
+        assert( nLeaves == 0 );
+        return Hop_NotCond( Hop_ManConst0(pMan), Vec_IntEntry(vAig, 0) );
     }
-    Vec_PtrFree( vResults );
-    return Hop_NotCond( pRes, This.fCompl );
+    if ( Vec_IntSize(vAig) == 2 ) // variable
+    {
+        assert( Vec_IntEntry(vAig, 0) == 0 );
+        assert( nLeaves == 1 );
+        return Hop_NotCond( Hop_IthVar(pMan, 0), Vec_IntEntry(vAig, 1) );
+    }
+    else
+    {
+        int i, iVar0, iVar1, iLit0, iLit1;
+        Hop_Obj_t * piLit0, * piLit1, * piLit = NULL;
+        assert( Vec_IntSize(vAig) & 1 );
+        Vec_IntForEachEntryDouble( vAig, iLit0, iLit1, i )
+        {
+            iVar0 = Abc_Lit2Var( iLit0 );
+            iVar1 = Abc_Lit2Var( iLit1 );
+            piLit0 = Hop_NotCond( iVar0 < nLeaves ? Hop_IthVar(pMan, iVar0) : (Hop_Obj_t *)Vec_PtrEntry((Vec_Ptr_t *)vAig, iVar0 - nLeaves), Abc_LitIsCompl(iLit0) );
+            piLit1 = Hop_NotCond( iVar1 < nLeaves ? Hop_IthVar(pMan, iVar1) : (Hop_Obj_t *)Vec_PtrEntry((Vec_Ptr_t *)vAig, iVar1 - nLeaves), Abc_LitIsCompl(iLit1) );
+            piLit  = Hop_And( pMan, piLit0, piLit1 );
+            assert( (i & 1) == 0 );
+            Vec_PtrWriteEntry( (Vec_Ptr_t *)vAig, Abc_Lit2Var(i), piLit );  // overwriting entries
+        }
+        assert( i == Vec_IntSize(vAig) - 1 );
+        piLit = Hop_NotCond( piLit, Vec_IntEntry(vAig, i) );
+        Vec_IntClear( vAig ); // useless
+        return piLit;
+    }
 }
-
-/**Function*************************************************************
-
-  Synopsis    [Creates the mapped network.]
-
-  Description [Assuming the copy field of the mapped nodes are NULL.]
-               
-  SideEffects []
-
-  SeeAlso     []
-
-***********************************************************************/
-Hop_Obj_t * Abc_NodeTruthToHop( Hop_Man_t * pMan, If_Man_t * p, If_Cut_t * pCut )
+Hop_Obj_t * Abc_NodeBuildFromMini( Hop_Man_t * pMan, If_Man_t * p, If_Cut_t * pCut, int fUseDsd )
 {
-    Hop_Obj_t * pResult;
-    Vec_Wrd_t * vArray;
-    vArray  = If_CutDelaySopArray( p, pCut );
-    pResult = Abc_NodeTruthToHopInt( pMan, vArray, If_CutLeaveNum(pCut) );
-//    Vec_WrdFree( vArray );
-    return pResult;
+    int Delay;
+    if ( fUseDsd )
+        Delay = If_CutDsdBalanceEval( p, pCut, p->vArray );
+    else
+        Delay = If_CutSopBalanceEval( p, pCut, p->vArray );
+    assert( Delay >= 0 );
+    return Abc_NodeBuildFromMiniInt( pMan, p->vArray, If_CutLeaveNum(pCut) );
 }
 
 /**Function*************************************************************
@@ -428,7 +437,7 @@ Abc_Obj_t * Abc_NodeFromIf_rec( Abc_Ntk_t * pNtkNew, If_Man_t * pIfMan, If_Obj_t
     pCutBest = If_ObjCutBest( pIfObj );
 //    printf( "%d 0x%02X %d\n", pCutBest->nLeaves, 0xff & *If_CutTruth(pCutBest), pIfMan->pPars->pFuncCost(pCutBest) );
 //    if ( pIfMan->pPars->pLutLib && pIfMan->pPars->pLutLib->fVarPinDelays )
-    if ( !pIfMan->pPars->fDelayOpt && !pIfMan->pPars->pLutStruct && !pIfMan->pPars->fUserRecLib && !pIfMan->pPars->nGateSize )
+    if ( !pIfMan->pPars->fDelayOpt && !pIfMan->pPars->fDelayOptLut && !pIfMan->pPars->fDsdBalance && !pIfMan->pPars->fUseTtPerm && !pIfMan->pPars->pLutStruct && !pIfMan->pPars->fUserRecLib && !pIfMan->pPars->nGateSize )
         If_CutRotatePins( pIfMan, pCutBest );
     if ( pIfMan->pPars->fUseCnfs || pIfMan->pPars->fUseMv )
     {
@@ -448,17 +457,17 @@ Abc_Obj_t * Abc_NodeFromIf_rec( Abc_Ntk_t * pNtkNew, If_Man_t * pIfMan, If_Obj_t
         if ( pIfMan->pPars->fUseBdds )
         { 
             // transform truth table into the BDD 
-            pNodeNew->pData = Kit_TruthToBdd( (DdManager *)pNtkNew->pManFunc, If_CutTruth(pCutBest), If_CutLeaveNum(pCutBest), 0 );  Cudd_Ref((DdNode *)pNodeNew->pData); 
+            pNodeNew->pData = Kit_TruthToBdd( (DdManager *)pNtkNew->pManFunc, If_CutTruth(pIfMan, pCutBest), If_CutLeaveNum(pCutBest), 0 );  Cudd_Ref((DdNode *)pNodeNew->pData); 
         }
         else if ( pIfMan->pPars->fUseCnfs || pIfMan->pPars->fUseMv )
         { 
             // transform truth table into the BDD 
-            pNodeNew->pData = Kit_TruthToBdd( (DdManager *)pNtkNew->pManFunc, If_CutTruth(pCutBest), If_CutLeaveNum(pCutBest), 1 );  Cudd_Ref((DdNode *)pNodeNew->pData); 
+            pNodeNew->pData = Kit_TruthToBdd( (DdManager *)pNtkNew->pManFunc, If_CutTruth(pIfMan, pCutBest), If_CutLeaveNum(pCutBest), 1 );  Cudd_Ref((DdNode *)pNodeNew->pData); 
         }
         else if ( pIfMan->pPars->fUseSops || pIfMan->pPars->nGateSize > 0 ) 
         {
             // transform truth table into the SOP
-            int RetValue = Kit_TruthIsop( If_CutTruth(pCutBest), If_CutLeaveNum(pCutBest), vCover, 1 );
+            int RetValue = Kit_TruthIsop( If_CutTruth(pIfMan, pCutBest), If_CutLeaveNum(pCutBest), vCover, 1 );
             assert( RetValue == 0 || RetValue == 1 );
             // check the case of constant cover
             if ( Vec_IntSize(vCover) == 0 || (Vec_IntSize(vCover) == 1 && Vec_IntEntry(vCover,0) == 0) )
@@ -476,30 +485,26 @@ Abc_Obj_t * Abc_NodeFromIf_rec( Abc_Ntk_t * pNtkNew, If_Man_t * pIfMan, If_Obj_t
             }
         }
         else if ( pIfMan->pPars->fDelayOpt )
-        {
-            extern Hop_Obj_t * Abc_NodeTruthToHop( Hop_Man_t * pMan, If_Man_t * pIfMan, If_Cut_t * pCut );
-            pNodeNew->pData = Abc_NodeTruthToHop( (Hop_Man_t *)pNtkNew->pManFunc, pIfMan, pCutBest );
-        }
+            pNodeNew->pData = Abc_NodeBuildFromMini( (Hop_Man_t *)pNtkNew->pManFunc, pIfMan, pCutBest, 0 );
+        else if ( pIfMan->pPars->fDsdBalance )
+            pNodeNew->pData = Abc_NodeBuildFromMini( (Hop_Man_t *)pNtkNew->pManFunc, pIfMan, pCutBest, 1 );
         else if ( pIfMan->pPars->fUserRecLib )
         {
-            extern Hop_Obj_t * Abc_RecToHop( Hop_Man_t * pMan, If_Man_t * pIfMan, If_Cut_t * pCut, If_Obj_t * pIfObj );
-            extern Hop_Obj_t * Abc_RecToHop2( Hop_Man_t * pMan, If_Man_t * pIfMan, If_Cut_t * pCut, If_Obj_t * pIfObj );
             extern Hop_Obj_t * Abc_RecToHop3( Hop_Man_t * pMan, If_Man_t * pIfMan, If_Cut_t * pCut, If_Obj_t * pIfObj );
-            if(Abc_NtkRecIsRunning3())
-                pNodeNew->pData = Abc_RecToHop3( (Hop_Man_t *)pNtkNew->pManFunc, pIfMan, pCutBest, pIfObj); 
-            else if(Abc_NtkRecIsRunning2())
-                pNodeNew->pData = Abc_RecToHop2( (Hop_Man_t *)pNtkNew->pManFunc, pIfMan, pCutBest, pIfObj); 
-            else
-                pNodeNew->pData = Abc_RecToHop( (Hop_Man_t *)pNtkNew->pManFunc, pIfMan, pCutBest, pIfObj); 
-            
+            pNodeNew->pData = Abc_RecToHop3( (Hop_Man_t *)pNtkNew->pManFunc, pIfMan, pCutBest, pIfObj ); 
         }
         else
         {
             extern Hop_Obj_t * Kit_TruthToHop( Hop_Man_t * pMan, unsigned * pTruth, int nVars, Vec_Int_t * vMemory );
-            pNodeNew->pData = Kit_TruthToHop( (Hop_Man_t *)pNtkNew->pManFunc, If_CutTruth(pCutBest), If_CutLeaveNum(pCutBest), vCover );
+            word * pTruth = If_CutTruthW(pIfMan, pCutBest);
+            if ( pIfMan->pPars->fUseTtPerm )
+                for ( i = 0; i < (int)pCutBest->nLeaves; i++ )
+                    if ( If_CutLeafBit(pCutBest, i) )
+                        Abc_TtFlip( pTruth, Abc_TtWordNum(pCutBest->nLeaves), i );
+            pNodeNew->pData = Kit_TruthToHop( (Hop_Man_t *)pNtkNew->pManFunc, (unsigned *)pTruth, If_CutLeaveNum(pCutBest), vCover );
         }
         // complement the node if the cut was complemented
-        if ( pCutBest->fCompl )
+        if ( pCutBest->fCompl && !pIfMan->pPars->fDelayOpt && !pIfMan->pPars->fDsdBalance )
             Abc_NodeComplement( pNodeNew );
     }
     else

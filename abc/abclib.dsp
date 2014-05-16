@@ -99,6 +99,10 @@ SOURCE=.\src\base\abc\abcAig.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\src\base\abc\abcBarBuf.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\base\abc\abcBlifMv.c
 # End Source File
 # Begin Source File
@@ -384,14 +388,6 @@ SOURCE=.\src\base\abci\abcQuant.c
 # Begin Source File
 
 SOURCE=.\src\base\abci\abcReach.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\src\base\abci\abcRec.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\src\base\abci\abcRec2.c
 # End Source File
 # Begin Source File
 
@@ -1407,6 +1403,10 @@ SOURCE=.\src\sat\bmc\bmc.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\src\sat\bmc\bmcBCore.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\sat\bmc\bmcBmc.c
 # End Source File
 # Begin Source File
@@ -1420,6 +1420,14 @@ SOURCE=.\src\sat\bmc\bmcBmc3.c
 # Begin Source File
 
 SOURCE=.\src\sat\bmc\bmcBmcAnd.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\sat\bmc\bmcBmci.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\sat\bmc\bmcCexCare.c
 # End Source File
 # Begin Source File
 
@@ -1443,11 +1451,23 @@ SOURCE=.\src\sat\bmc\bmcCexTools.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\src\sat\bmc\bmcFault.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\sat\bmc\bmcICheck.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\src\sat\bmc\bmcInse.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\sat\bmc\bmcLoad.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\sat\bmc\bmcMaxi.c
 # End Source File
 # Begin Source File
 
@@ -2295,11 +2315,19 @@ SOURCE=.\src\map\if\if.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\src\map\if\ifCache.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\map\if\ifCom.c
 # End Source File
 # Begin Source File
 
 SOURCE=.\src\map\if\ifCore.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\map\if\ifCount.h
 # End Source File
 # Begin Source File
 
@@ -2327,6 +2355,14 @@ SOURCE=.\src\map\if\ifDec75.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\src\map\if\ifDelay.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\map\if\ifDsd.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\map\if\ifLibBox.c
 # End Source File
 # Begin Source File
@@ -2347,6 +2383,10 @@ SOURCE=.\src\map\if\ifReduce.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\src\map\if\ifSat.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\map\if\ifSelect.c
 # End Source File
 # Begin Source File
@@ -2355,11 +2395,19 @@ SOURCE=.\src\map\if\ifSeq.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\src\map\if\ifTest.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\map\if\ifTime.c
 # End Source File
 # Begin Source File
 
 SOURCE=.\src\map\if\ifTruth.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\map\if\ifTune.c
 # End Source File
 # Begin Source File
 
@@ -2655,7 +2703,15 @@ SOURCE=.\src\misc\extra\extraUtilCanon.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\src\misc\extra\extraUtilCube.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\misc\extra\extraUtilDsd.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\misc\extra\extraUtilEnum.c
 # End Source File
 # Begin Source File
 
@@ -2668,6 +2724,10 @@ SOURCE=.\src\misc\extra\extraUtilMemory.c
 # Begin Source File
 
 SOURCE=.\src\misc\extra\extraUtilMisc.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\misc\extra\extraUtilPerm.c
 # End Source File
 # Begin Source File
 
@@ -2864,6 +2924,10 @@ SOURCE=.\src\misc\util\utilCex.c
 # Begin Source File
 
 SOURCE=.\src\misc\util\utilCex.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\misc\util\utilColor.c
 # End Source File
 # Begin Source File
 
@@ -3731,6 +3795,10 @@ SOURCE=.\src\aig\gia\giaJf.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\src\aig\gia\giaKf.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\aig\gia\giaMan.c
 # End Source File
 # Begin Source File
@@ -3816,6 +3884,10 @@ SOURCE=.\src\aig\gia\giaSwitch.c
 # Begin Source File
 
 SOURCE=.\src\aig\gia\giaTim.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\aig\gia\giaTis.c
 # End Source File
 # Begin Source File
 

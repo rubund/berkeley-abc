@@ -113,6 +113,7 @@ Abc_Ntk_t * Abc_NtkStartFrom( Abc_Ntk_t * pNtk, Abc_NtkType_t Type, Abc_NtkFunc_
     // start the network
     pNtkNew = Abc_NtkAlloc( Type, Func, 1 );
     pNtkNew->nConstrs   = pNtk->nConstrs;
+    pNtkNew->nBarBufs   = pNtk->nBarBufs;
     // duplicate the name and the spec
     pNtkNew->pName = Extra_UtilStrsav(pNtk->pName);
     pNtkNew->pSpec = Extra_UtilStrsav(pNtk->pSpec);
@@ -178,6 +179,7 @@ Abc_Ntk_t * Abc_NtkStartFromWithLatches( Abc_Ntk_t * pNtk, Abc_NtkType_t Type, A
     // start the network
     pNtkNew = Abc_NtkAlloc( Type, Func, 1 );
     pNtkNew->nConstrs   = pNtk->nConstrs;
+    pNtkNew->nBarBufs   = pNtk->nBarBufs;
     // duplicate the name and the spec
     pNtkNew->pName = Extra_UtilStrsav(pNtk->pName);
     pNtkNew->pSpec = Extra_UtilStrsav(pNtk->pSpec);
@@ -252,6 +254,7 @@ Abc_Ntk_t * Abc_NtkStartFromNoLatches( Abc_Ntk_t * pNtk, Abc_NtkType_t Type, Abc
     // start the network
     pNtkNew = Abc_NtkAlloc( Type, Func, 1 );
     pNtkNew->nConstrs   = pNtk->nConstrs;
+    pNtkNew->nBarBufs   = pNtk->nBarBufs;
     // duplicate the name and the spec
     pNtkNew->pName = Extra_UtilStrsav(pNtk->pName);
     pNtkNew->pSpec = Extra_UtilStrsav(pNtk->pSpec);
@@ -564,6 +567,7 @@ Abc_Ntk_t * Abc_NtkDupTransformMiter( Abc_Ntk_t * pNtk )
     // start the network
     pNtkNew = Abc_NtkAlloc( pNtk->ntkType, pNtk->ntkFunc, 1 );
     pNtkNew->nConstrs   = pNtk->nConstrs;
+    pNtkNew->nBarBufs   = pNtk->nBarBufs;
     // duplicate the name and the spec
     pNtkNew->pName = Extra_UtilStrsav(pNtk->pName);
     pNtkNew->pSpec = Extra_UtilStrsav(pNtk->pSpec);
@@ -1315,7 +1319,7 @@ void Abc_NtkDelete( Abc_Ntk_t * pNtk )
     // free the hierarchy
     if ( pNtk->pDesign )
     {
-        Abc_LibFree( pNtk->pDesign, pNtk );
+        Abc_DesFree( pNtk->pDesign, pNtk );
         pNtk->pDesign = NULL;
     }
 //    if ( pNtk->pBlackBoxes ) 
@@ -1323,13 +1327,11 @@ void Abc_NtkDelete( Abc_Ntk_t * pNtk )
     // free node attributes
     Vec_PtrForEachEntry( Abc_Obj_t *, pNtk->vAttrs, pAttrMan, i )
         if ( pAttrMan )
-        {
-//printf( "deleting attr\n" );
             Vec_AttFree( (Vec_Att_t *)pAttrMan, 1 );
-        }
     assert( pNtk->pSCLib == NULL );
     Vec_IntFreeP( &pNtk->vGates );
     Vec_PtrFree( pNtk->vAttrs );
+    Vec_IntFreeP( &pNtk->vNameIds );
     ABC_FREE( pNtk->pWLoadUsed );
     ABC_FREE( pNtk->pName );
     ABC_FREE( pNtk->pSpec );

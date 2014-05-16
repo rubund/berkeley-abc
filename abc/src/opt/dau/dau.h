@@ -40,7 +40,7 @@
 ABC_NAMESPACE_HEADER_START
 
 #define DAU_MAX_VAR    12 // should be 6 or more
-#define DAU_MAX_STR  1000
+#define DAU_MAX_STR  2000
 #define DAU_MAX_WORD  (1<<(DAU_MAX_VAR-6))
 
 ////////////////////////////////////////////////////////////////////////
@@ -80,7 +80,8 @@ extern unsigned      Abc_TtCanonicizePhase( word * pTruth, int nVars );
 /*=== dauDsd.c  ==========================================================*/
 extern int *         Dau_DsdComputeMatches( char * p );
 extern int           Dau_DsdDecompose( word * pTruth, int nVarsInit, int fSplitPrime, int fWriteTruth, char * pRes );
-extern void          Dau_DsdPrintFromTruth( FILE * pFile, word * pTruth, int nVarsInit );
+extern void          Dau_DsdPrintFromTruthFile( FILE * pFile, word * pTruth, int nVarsInit );
+extern void          Dau_DsdPrintFromTruth( word * pTruth, int nVarsInit );
 extern word *        Dau_DsdToTruth( char * p, int nVars );
 extern word          Dau_Dsd6ToTruth( char * p );
 extern void          Dau_DsdNormalize( char * p );
@@ -95,6 +96,13 @@ extern void *        Dsm_ManDeriveGia( void * p, int fUseMuxes );
 /*=== dauMerge.c  ==========================================================*/
 extern void          Dau_DsdRemoveBraces( char * pDsd, int * pMatches );
 extern char *        Dau_DsdMerge( char * pDsd0i, int * pPerm0, char * pDsd1i, int * pPerm1, int fCompl0, int fCompl1, int nVars );
+
+/*=== dauNonDsd.c  ==========================================================*/
+extern Vec_Int_t *   Dau_DecFindSets_int( word * pInit, int nVars, int * pSched[16] );
+extern Vec_Int_t *   Dau_DecFindSets( word * pInit, int nVars );
+extern void          Dau_DecSortSet( unsigned set, int nVars, int * pnUnique, int * pnShared, int * pnFree );
+extern void          Dau_DecPrintSets( Vec_Int_t * vSets, int nVars );
+extern void          Dau_DecPrintSet( unsigned set, int nVars, int fNewLine );
 
 /*=== dauTree.c  ==========================================================*/
 extern Dss_Man_t *   Dss_ManAlloc( int nVars, int nNonDecLimit );

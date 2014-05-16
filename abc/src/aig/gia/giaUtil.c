@@ -59,6 +59,11 @@ unsigned Gia_ManRandom( int fReset )
     m_w = 18000 * (m_w & 65535) + (m_w >> 16);
     return (m_z << 16) + m_w;
 }
+word Gia_ManRandomW( int fReset )
+{ 
+    return ((word)Gia_ManRandom(fReset) << 32) | ((word)Gia_ManRandom(fReset) << 0);
+}
+
 
 
 /**Function*************************************************************
@@ -504,6 +509,15 @@ int Gia_ManLevelNum( Gia_Man_t * p )
         p->nLevels = Abc_MaxInt( p->nLevels, Gia_ObjLevel(p, pObj) );
     }
     return p->nLevels;
+}
+float Gia_ManLevelAve( Gia_Man_t * p )  
+{
+    Gia_Obj_t * pObj;
+    int i, Ave = 0;
+    assert( p->vLevels );
+    Gia_ManForEachCo( p, pObj, i )
+        Ave += Gia_ObjLevel(p, pObj);
+    return (float)Ave / Gia_ManCoNum(p);
 }
 
 /**Function*************************************************************
@@ -1814,6 +1828,60 @@ Vec_Int_t * Gia_ManGroupProve( Gia_Man_t * pInit, char * pCommLine, int nGroupSi
     return vOutMap;
 }
 
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Vec_Int_t * Gia_ManPoXSim( Gia_Man_t * p, int nFrames, int fVerbose )
+{
+    Vec_Int_t * vRes;
+    Gia_Obj_t * pObj;
+    int f, k, nLeft = Gia_ManPoNum(p);
+    vRes = Vec_IntAlloc( Gia_ManPoNum(p) );
+    Vec_IntFill( vRes, Gia_ManPoNum(p), nFrames );
+    Gia_ObjTerSimSet0( Gia_ManConst0(p) );
+    Gia_ManForEachRi( p, pObj, k )
+        Gia_ObjTerSimSet0( pObj );
+    for ( f = 0; f < nFrames; f++ )
+    {
+        Gia_ManForEachPi( p, pObj, k )
+            Gia_ObjTerSimSetX( pObj );
+        Gia_ManForEachRo( p, pObj, k )
+            Gia_ObjTerSimRo( p, pObj );
+        Gia_ManForEachAnd( p, pObj, k )
+            Gia_ObjTerSimAnd( pObj );
+        Gia_ManForEachCo( p, pObj, k )
+            Gia_ObjTerSimCo( pObj );
+        if ( fVerbose )
+        {
+            Gia_ManForEachPo( p, pObj, k )
+                Gia_ObjTerSimPrint( pObj );
+            printf( "\n" );
+        }
+        Gia_ManForEachPo( p, pObj, k )
+            if ( Vec_IntEntry(vRes, k) == nFrames && Gia_ObjTerSimGetX(pObj) )
+                Vec_IntWriteEntry(vRes, k, f), nLeft--;
+        if ( nLeft == 0 )
+            break;
+    }
+    if ( fVerbose )
+    {
+        if ( nLeft == 0 )
+            printf( "Simulation converged after %d frames.\n", f+1 );
+        else
+            printf( "Simulation terminated after %d frames.\n", nFrames );
+    }        
+//    Vec_IntPrint( vRes );
+    return vRes;
+}
 
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///

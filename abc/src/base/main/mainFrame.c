@@ -22,6 +22,7 @@
 #include "mainInt.h"
 #include "bool/dec/dec.h"
 #include "misc/extra/extraBdd.h"
+#include "map/if/if.h"
 
 
 ABC_NAMESPACE_IMPL_START
@@ -55,10 +56,10 @@ void *      Abc_FrameReadLibBox()                            { return s_GlobalFr
 void *      Abc_FrameReadLibGen()                            { return s_GlobalFrame->pLibGen;      } 
 void *      Abc_FrameReadLibGen2()                           { return s_GlobalFrame->pLibGen2;     } 
 void *      Abc_FrameReadLibSuper()                          { return s_GlobalFrame->pLibSuper;    } 
-void *      Abc_FrameReadLibVer()                            { return s_GlobalFrame->pLibVer;      } 
 void *      Abc_FrameReadLibScl()                            { return s_GlobalFrame->pLibScl;      } 
 void *      Abc_FrameReadManDd()                             { if ( s_GlobalFrame->dd == NULL )      s_GlobalFrame->dd = Cudd_Init( 0, 0, CUDD_UNIQUE_SLOTS, CUDD_CACHE_SLOTS, 0 );  return s_GlobalFrame->dd;      } 
 void *      Abc_FrameReadManDec()                            { if ( s_GlobalFrame->pManDec == NULL ) s_GlobalFrame->pManDec = Dec_ManStart();                                        return s_GlobalFrame->pManDec; } 
+void *      Abc_FrameReadManDsd()                            { return s_GlobalFrame->pManDsd;      } 
 char *      Abc_FrameReadFlag( char * pFlag )                { return Cmd_FlagReadByName( s_GlobalFrame, pFlag );   } 
 
 int         Abc_FrameReadBmcFrames( Abc_Frame_t * p )        { return s_GlobalFrame->nFrames;      }               
@@ -80,11 +81,11 @@ void        Abc_FrameSetLibBox( void * pLib )                { s_GlobalFrame->pL
 void        Abc_FrameSetLibGen( void * pLib )                { s_GlobalFrame->pLibGen   = pLib;    } 
 void        Abc_FrameSetLibGen2( void * pLib )               { s_GlobalFrame->pLibGen2  = pLib;    } 
 void        Abc_FrameSetLibSuper( void * pLib )              { s_GlobalFrame->pLibSuper = pLib;    } 
-void        Abc_FrameSetLibVer( void * pLib )                { s_GlobalFrame->pLibVer   = pLib;    } 
 void        Abc_FrameSetFlag( char * pFlag, char * pValue )  { Cmd_FlagUpdateValue( s_GlobalFrame, pFlag, pValue );               } 
 void        Abc_FrameSetCex( Abc_Cex_t * pCex )              { ABC_FREE( s_GlobalFrame->pCex ); s_GlobalFrame->pCex = pCex;       }
 void        Abc_FrameSetNFrames( int nFrames )               { ABC_FREE( s_GlobalFrame->pCex ); s_GlobalFrame->nFrames = nFrames; }
 void        Abc_FrameSetStatus( int Status )                 { ABC_FREE( s_GlobalFrame->pCex ); s_GlobalFrame->Status = Status;   }
+void        Abc_FrameSetManDsd( void * pMan )                { if (s_GlobalFrame->pManDsd && s_GlobalFrame->pManDsd != pMan) If_DsdManFree((If_DsdMan_t *)s_GlobalFrame->pManDsd, 0); s_GlobalFrame->pManDsd = pMan; }
 
 int         Abc_FrameIsBatchMode()                           { return s_GlobalFrame ? s_GlobalFrame->fBatchMode : 0;              } 
 
@@ -186,7 +187,6 @@ void Abc_FrameDeallocate( Abc_Frame_t * p )
     if ( p->vCexVec   )  Vec_PtrFreeFree( p->vCexVec );
     if ( p->vPoEquivs )  Vec_VecFree( (Vec_Vec_t *)p->vPoEquivs );
     if ( p->vStatuses )  Vec_IntFree( p->vStatuses );
-    if ( p->pLibVer   )  Abc_LibFree( (Abc_Lib_t *)p->pLibVer, NULL );
     if ( p->pManDec   )  Dec_ManStop( (Dec_Man_t *)p->pManDec );
     if ( p->dd        )  Extra_StopManager( p->dd );
     if ( p->vStore    )  Vec_PtrFree( p->vStore );
@@ -194,6 +194,7 @@ void Abc_FrameDeallocate( Abc_Frame_t * p )
     if ( p->pSave2    )  Aig_ManStop( (Aig_Man_t *)p->pSave2 );
     if ( p->pSave3    )  Aig_ManStop( (Aig_Man_t *)p->pSave3 );
     if ( p->pSave4    )  Aig_ManStop( (Aig_Man_t *)p->pSave4 );
+    if ( p->pManDsd   )  If_DsdManFree( (If_DsdMan_t *)p->pManDsd, 0 );
     if ( p->vPlugInComBinPairs ) 
     {
         char * pTemp;
@@ -489,6 +490,9 @@ void Abc_FrameReplaceCurrentNetwork( Abc_Frame_t * p, Abc_Ntk_t * pNtk )
 {
     if ( pNtk == NULL )
         return;
+
+    if ( Abc_NtkPoNum(pNtk) == 0 )
+        Abc_Print( 0, "The current network has no primary outputs. Some commands may not work correctly.\n" );
 
     // transfer the parameters to the new network
     if ( p->pNtkCur && Abc_FrameIsFlagEnabled( "backup" ) )

@@ -65,6 +65,7 @@ struct Saig_ParBmc_t_
     int         nLearnedPerce;  // ratio of learned clause limit
     int         fVerbose;       // verbose 
     int         fNotVerbose;    // skip line-by-line print-out 
+    char *      pLogFileName;   // log file name
     int         fSilent;        // completely silent
     int         iFrame;         // explored up to this frame
     int         nFailOuts;      // the number of failed outputs
@@ -93,7 +94,18 @@ struct Bmc_AndPar_t_
     int         nFailOuts;      // the number of failed outputs
     int         nDropOuts;      // the number of dropped outputs
 };
- 
+  
+typedef struct Bmc_BCorePar_t_ Bmc_BCorePar_t;
+struct Bmc_BCorePar_t_
+{
+    int         iFrame;         // timeframe
+    int         iOutput;        // property output
+    int         nTimeOut;       // timeout in seconds
+    char *      pFilePivots;    // file name with AIG IDs of pivot objects
+    char *      pFileProof;     // file name to write the resulting proof
+    int         fVerbose;       // verbose output
+};
+
 typedef struct Bmc_MulPar_t_ Bmc_MulPar_t;
 struct Bmc_MulPar_t_
 {
@@ -116,6 +128,8 @@ struct Bmc_MulPar_t_
 ///                    FUNCTION DECLARATIONS                         ///
 ////////////////////////////////////////////////////////////////////////
 
+/*=== bmcBCore.c ==========================================================*/
+extern void              Bmc_ManBCorePerform( Gia_Man_t * pGia, Bmc_BCorePar_t * pPars );
 /*=== bmcBmc.c ==========================================================*/
 extern int               Saig_ManBmcSimple( Aig_Man_t * pAig, int nFrames, int nSizeMax, int nBTLimit, int fRewrite, int fVerbose, int * piFrame, int nCofFanLit );
 /*=== bmcBmc2.c ==========================================================*/
@@ -125,11 +139,17 @@ extern void              Saig_ParBmcSetDefaultParams( Saig_ParBmc_t * p );
 extern int               Saig_ManBmcScalable( Aig_Man_t * pAig, Saig_ParBmc_t * pPars );
 /*=== bmcBmcAnd.c ==========================================================*/
 extern int               Gia_ManBmcPerform( Gia_Man_t * p, Bmc_AndPar_t * pPars );
+/*=== bmcCexCare.c ==========================================================*/
+extern Abc_Cex_t *       Bmc_CexCareMinimize( Aig_Man_t * p, Abc_Cex_t * pCex, int fCheck, int fVerbose );
+extern void              Bmc_CexCareVerify( Aig_Man_t * p, Abc_Cex_t * pCex, Abc_Cex_t * pCexMin, int fVerbose );
 /*=== bmcCexCut.c ==========================================================*/
 extern Gia_Man_t *       Bmc_GiaTargetStates( Gia_Man_t * p, Abc_Cex_t * pCex, int iFrBeg, int iFrEnd, int fCombOnly, int fGenAll, int fAllFrames, int fVerbose );
 extern Aig_Man_t *       Bmc_AigTargetStates( Aig_Man_t * p, Abc_Cex_t * pCex, int iFrBeg, int iFrEnd, int fCombOnly, int fGenAll, int fAllFrames, int fVerbose );
 /*=== bmcCexMin.c ==========================================================*/
 extern Abc_Cex_t *       Saig_ManCexMinPerform( Aig_Man_t * pAig, Abc_Cex_t * pCex );
+/*=== bmcCexTool.c ==========================================================*/
+extern void              Bmc_CexPrint( Abc_Cex_t * pCex, int nInputs, int fVerbose );
+extern int               Bmc_CexVerify( Gia_Man_t * p, Abc_Cex_t * pCex, Abc_Cex_t * pCexCare );
 /*=== bmcICheck.c ==========================================================*/
 extern void              Bmc_PerformICheck( Gia_Man_t * p, int nFramesMax, int nTimeOut, int fEmpty, int fVerbose );
 extern Vec_Int_t *       Bmc_PerformISearch( Gia_Man_t * p, int nFramesMax, int nTimeOut, int fReverse, int fDump, int fVerbose );

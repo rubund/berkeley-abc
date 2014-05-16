@@ -158,8 +158,9 @@ Aig_Man_t * Abc_NtkToDarBmc( Abc_Ntk_t * pNtk, Vec_Int_t ** pvMap )
     // create network
     pMan = Aig_ManStart( Abc_NtkNodeNum(pNtk) + 100 );
     pMan->nConstrs = pNtk->nConstrs;
+    pMan->nBarBufs = pNtk->nBarBufs;
     pMan->pName = Extra_UtilStrsav( pNtk->pName );
-
+    pMan->pSpec = Extra_UtilStrsav( pNtk->pSpec );
     // transfer the pointers to the basic nodes
     Abc_AigConst1(pNtk)->pCopy = (Abc_Obj_t *)Aig_ManConst1(pMan);
     Abc_NtkForEachCi( pNtk, pObj, i )
@@ -277,8 +278,9 @@ Aig_Man_t * Abc_NtkToDar( Abc_Ntk_t * pNtk, int fExors, int fRegisters )
     pMan = Aig_ManStart( Abc_NtkNodeNum(pNtk) + 100 );
     pMan->fCatchExor = fExors;
     pMan->nConstrs = pNtk->nConstrs;
-
+    pMan->nBarBufs = pNtk->nBarBufs;
     pMan->pName = Extra_UtilStrsav( pNtk->pName );
+    pMan->pSpec = Extra_UtilStrsav( pNtk->pSpec );
     // transfer the pointers to the basic nodes
     Abc_AigConst1(pNtk)->pCopy = (Abc_Obj_t *)Aig_ManConst1(pMan);
     Abc_NtkForEachCi( pNtk, pObj, i )
@@ -357,8 +359,10 @@ Aig_Man_t * Abc_NtkToDarChoices( Abc_Ntk_t * pNtk )
     vNodes = Abc_AigDfs( pNtk, 0, 0 );
     // create the manager
     pMan = Aig_ManStart( Abc_NtkNodeNum(pNtk) + 100 );
-    pMan->pName = Extra_UtilStrsav( pNtk->pName );
     pMan->nConstrs = pNtk->nConstrs;
+    pMan->nBarBufs = pNtk->nBarBufs;
+    pMan->pName = Extra_UtilStrsav( pNtk->pName );
+    pMan->pSpec = Extra_UtilStrsav( pNtk->pSpec );
     if ( Abc_NtkGetChoiceNum(pNtk) )
     {
         pMan->pEquivs = ABC_ALLOC( Aig_Obj_t *, Abc_NtkObjNum(pNtk) );
@@ -417,6 +421,7 @@ Abc_Ntk_t * Abc_NtkFromDar( Abc_Ntk_t * pNtkOld, Aig_Man_t * pMan )
     // perform strashing
     pNtkNew = Abc_NtkStartFrom( pNtkOld, ABC_NTK_STRASH, ABC_FUNC_AIG );
     pNtkNew->nConstrs = pMan->nConstrs;
+    pNtkNew->nBarBufs = pNtkOld->nBarBufs;
     // transfer the pointers to the basic nodes
     Aig_ManConst1(pMan)->pData = Abc_AigConst1(pNtkNew);
     Aig_ManForEachCi( pMan, pObj, i )
@@ -467,10 +472,12 @@ Abc_Ntk_t * Abc_NtkFromDarSeqSweep( Abc_Ntk_t * pNtkOld, Aig_Man_t * pMan )
     Aig_Obj_t * pObj, * pObjLo, * pObjLi;
     int i, iNodeId, nDigits; 
     assert( pMan->nAsserts == 0 );
+    assert( pNtkOld->nBarBufs == 0 );
 //    assert( Aig_ManRegNum(pMan) != Abc_NtkLatchNum(pNtkOld) );
     // perform strashing
     pNtkNew = Abc_NtkStartFromNoLatches( pNtkOld, ABC_NTK_STRASH, ABC_FUNC_AIG );
     pNtkNew->nConstrs = pMan->nConstrs;
+    pNtkNew->nBarBufs = pMan->nBarBufs;
     // consider the case of target enlargement
     if ( Abc_NtkCiNum(pNtkNew) < Aig_ManCiNum(pMan) - Aig_ManRegNum(pMan) )
     {
@@ -590,6 +597,7 @@ Abc_Ntk_t * Abc_NtkFromAigPhase( Aig_Man_t * pMan )
     // perform strashing
     pNtkNew = Abc_NtkAlloc( ABC_NTK_STRASH, ABC_FUNC_AIG, 1 );
     pNtkNew->nConstrs = pMan->nConstrs;
+    pNtkNew->nBarBufs = pMan->nBarBufs;
     // duplicate the name and the spec
 //    pNtkNew->pName = Extra_UtilStrsav(pMan->pName);
 //    pNtkNew->pSpec = Extra_UtilStrsav(pMan->pSpec);
@@ -811,6 +819,7 @@ Abc_Ntk_t * Abc_NtkAfterTrim( Aig_Man_t * pMan, Abc_Ntk_t * pNtkOld )
     Aig_Obj_t * pObj, * pObjLo, * pObjLi;
     int i; 
     assert( pMan->nAsserts == 0 );
+    assert( pNtkOld->nBarBufs == 0 );
     assert( Aig_ManRegNum(pMan) <= Abc_NtkLatchNum(pNtkOld) );
     assert( Saig_ManPiNum(pMan) <= Abc_NtkCiNum(pNtkOld) );
     assert( Saig_ManPoNum(pMan) == Abc_NtkPoNum(pNtkOld) );
@@ -818,6 +827,7 @@ Abc_Ntk_t * Abc_NtkAfterTrim( Aig_Man_t * pMan, Abc_Ntk_t * pNtkOld )
     // perform strashing
     pNtkNew = Abc_NtkAlloc( ABC_NTK_STRASH, ABC_FUNC_AIG, 1 );
     pNtkNew->nConstrs = pMan->nConstrs;
+    pNtkNew->nBarBufs = pMan->nBarBufs;
     // duplicate the name and the spec
 //    pNtkNew->pName = Extra_UtilStrsav(pMan->pName);
 //    pNtkNew->pSpec = Extra_UtilStrsav(pMan->pSpec);
@@ -899,6 +909,7 @@ Abc_Ntk_t * Abc_NtkFromDarChoices( Abc_Ntk_t * pNtkOld, Aig_Man_t * pMan )
     // perform strashing
     pNtkNew = Abc_NtkStartFrom( pNtkOld, ABC_NTK_STRASH, ABC_FUNC_AIG );
     pNtkNew->nConstrs = pMan->nConstrs;
+    pNtkNew->nBarBufs = pNtkOld->nBarBufs;
     // transfer the pointers to the basic nodes
     Aig_ManCleanData( pMan );
     Aig_ManConst1(pMan)->pData = Abc_AigConst1(pNtkNew);
@@ -956,9 +967,11 @@ Abc_Ntk_t * Abc_NtkFromDarSeq( Abc_Ntk_t * pNtkOld, Aig_Man_t * pMan )
     Aig_Obj_t * pObj;
     int i;
 //    assert( Aig_ManLatchNum(pMan) > 0 );
+    assert( pNtkOld->nBarBufs == 0 );
     // perform strashing
     pNtkNew = Abc_NtkStartFromNoLatches( pNtkOld, ABC_NTK_STRASH, ABC_FUNC_AIG );
     pNtkNew->nConstrs = pMan->nConstrs;
+    pNtkNew->nBarBufs = pMan->nBarBufs;
     // transfer the pointers to the basic nodes
     Aig_ManConst1(pMan)->pData = Abc_AigConst1(pNtkNew);
     Aig_ManForEachCi( pMan, pObj, i )
@@ -2068,7 +2081,7 @@ int Abc_NtkDarBmc( Abc_Ntk_t * pNtk, int nStart, int nFrames, int nSizeMax, int 
             Abc_Print( 1, "Incorrect return value.  " );
         else if ( RetValue == -1 )
         {
-            Abc_Print( 1, "No output asserted in %d frames. Resource limit reached ", Abc_MaxInt(iFrame,0) );
+            Abc_Print( 1, "No output asserted in %d frames. Resource limit reached ", Abc_MaxInt(iFrame+1,0) );
             if ( nTimeLimit && Abc_Clock() > nTimeLimit )
                 Abc_Print( 1, "(timeout %d sec). ", nTimeLimit );
             else
@@ -2148,7 +2161,7 @@ int Abc_NtkDarBmc3( Abc_Ntk_t * pNtk, Saig_ParBmc_t * pPars, int fOrDecomp )
         {
             if ( pPars->nFailOuts == 0 )
             {
-                Abc_Print( 1, "No output asserted in %d frames. Resource limit reached ", Abc_MaxInt(pPars->iFrame,0) );
+                Abc_Print( 1, "No output asserted in %d frames. Resource limit reached ", Abc_MaxInt(pPars->iFrame+1,0) );
                 if ( nTimeOut && Abc_Clock() > nTimeOut )
                     Abc_Print( 1, "(timeout %d sec). ", pPars->nTimeOut );
                 else

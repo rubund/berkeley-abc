@@ -142,7 +142,7 @@ int If_ManPerformMappingRoundSeq( If_Man_t * p, int nIter )
     p->nCutsMerged = 0;
     If_ManForEachNode( p, pObj, i )
     {
-        If_ObjPerformMappingAnd( p, pObj, 0, 0 );
+        If_ObjPerformMappingAnd( p, pObj, 0, 0, 0 );
         if ( pObj->fRepr )
             If_ObjPerformMappingChoice( p, pObj, 0, 0 );
     }
@@ -305,15 +305,9 @@ void If_ManPerformMappingSeqPost( If_Man_t * p )
     assert( p->pPars->pTimesReq == NULL );
     p->pPars->pTimesReq = ABC_ALLOC( float, If_ManCoNum(p) );
     If_ManForEachPo( p, pObj, i )
-    {
         p->pPars->pTimesReq[i] = p->RequiredGlo2;
-//        Abc_Print( 1, "Out %3d : %2d   \n", i, (int)p->pPars->pTimesReq[i] );
-    }
     If_ManForEachLatchInput( p, pObjLi, i )
-    {
         p->pPars->pTimesReq[i] = If_ObjLValue(If_ObjFanin0(pObjLi));
-//        Abc_Print( 1, "Out %3d : %2d   \n", i, (int)p->pPars->pTimesReq[i] );
-    }
 
     // undo previous mapping
     If_ManForEachObj( p, pObj, i )
@@ -321,9 +315,9 @@ void If_ManPerformMappingSeqPost( If_Man_t * p )
             If_ObjCutBest(pObj)->nLeaves = 0;
 
     // map again combinationally
-    p->pPars->fSeqMap = 0;
+//    p->pPars->fSeqMap = 0;
     If_ManPerformMappingComb( p );
-    p->pPars->fSeqMap = 1;
+//    p->pPars->fSeqMap = 1;
 }
 
 /**Function*************************************************************
@@ -345,7 +339,7 @@ int If_ManPerformMappingSeq( If_Man_t * p )
     p->SortMode = 0;
 
     // perform combinational mapping to get the upper bound on the clock period
-    If_ManPerformMappingRound( p, 1, 0, 0, NULL );
+    If_ManPerformMappingRound( p, 1, 0, 0, 1, NULL );
     p->RequiredGlo  = If_ManDelayMax( p, 0 );
     p->RequiredGlo2 = p->RequiredGlo;
 

@@ -139,6 +139,7 @@ struct Gia_Man_t_
     Vec_Int_t *    vFlopClasses;  // classes of flops for retiming/merging/etc
     Vec_Int_t *    vGateClasses;  // classes of gates for abstraction
     Vec_Int_t *    vObjClasses;   // classes of objects for abstraction
+    Vec_Int_t *    vInitClasses;  // classes of flops for retiming/merging/etc
     Vec_Int_t *    vDoms;         // dominators
     unsigned char* pSwitching;    // switching activity for each object
     Gia_Plc_t *    pPlacement;    // placement of the objects
@@ -195,7 +196,7 @@ struct Gps_Par_t_
     int            fCut;
     int            fNpn;
     int            fLutProf;
-    int            fDumpFile;
+    char *         pDumpFile;
 };
 
 typedef struct Emb_Par_t_ Emb_Par_t;
@@ -245,6 +246,7 @@ struct Jf_Par_t_
 {
     int            nLutSize;
     int            nCutNum;
+    int            nProcNum;
     int            nRounds;
     int            nVerbLimit;
     int            DelayTarget;
@@ -257,10 +259,13 @@ struct Jf_Par_t_
     int            fCnfObjIds;
     int            fAddOrCla;
     int            fPureAig;
+    int            fCutHashing;
+    int            fCutSimple;
     int            fVerbose;
     int            fVeryVerbose;
     int            nLutSizeMax;
     int            nCutNumMax;
+    int            nProcNumMax;
     word           Delay;
     word           Area;
     word           Edge;
@@ -859,15 +864,19 @@ static inline void        Gia_ClassUndoPair( Gia_Man_t * p, int i )          { a
     for ( assert(Gia_ObjIsHead(p, i)), iObj = Gia_ObjNext(p, i); iObj; iObj = Gia_ObjNext(p, iObj) )
 
 
-static inline int         Gia_ObjFoffset( Gia_Man_t * p, Gia_Obj_t * pObj )        { return Vec_IntEntry( p->vFanout, Gia_ObjId(p, pObj) );                 }
-static inline int         Gia_ObjFanoutNum( Gia_Man_t * p, Gia_Obj_t * pObj )      { return Vec_IntEntry( p->vFanoutNums, Gia_ObjId(p, pObj) );             }
-static inline int         Gia_ObjFanoutId( Gia_Man_t * p, Gia_Obj_t * pObj, int i ){ return Vec_IntEntry( p->vFanout, Gia_ObjFoffset(p, pObj) + i );        }
-static inline Gia_Obj_t * Gia_ObjFanout0( Gia_Man_t * p, Gia_Obj_t * pObj )        { return Gia_ManObj( p, Gia_ObjFanoutId(p, pObj, 0) );                   }
-static inline Gia_Obj_t * Gia_ObjFanout( Gia_Man_t * p, Gia_Obj_t * pObj, int i )  { return Gia_ManObj( p, Gia_ObjFanoutId(p, pObj, i) );                   }
+static inline int         Gia_ObjFoffsetId( Gia_Man_t * p, int Id )                { return Vec_IntEntry( p->vFanout, Id );                                 }
+static inline int         Gia_ObjFoffset( Gia_Man_t * p, Gia_Obj_t * pObj )        { return Gia_ObjFoffsetId( p, Gia_ObjId(p, pObj) );                      }
+static inline int         Gia_ObjFanoutNumId( Gia_Man_t * p, int Id )              { return Vec_IntEntry( p->vFanoutNums, Id );                             }
+static inline int         Gia_ObjFanoutNum( Gia_Man_t * p, Gia_Obj_t * pObj )      { return Gia_ObjFanoutNumId( p, Gia_ObjId(p, pObj) );                    }
+static inline int         Gia_ObjFanoutId( Gia_Man_t * p, int Id, int i )          { return Vec_IntEntry( p->vFanout, Gia_ObjFoffsetId(p, Id) + i );        }
+static inline Gia_Obj_t * Gia_ObjFanout0( Gia_Man_t * p, Gia_Obj_t * pObj )        { return Gia_ManObj( p, Gia_ObjFanoutId(p, Gia_ObjId(p, pObj), 0) );     }
+static inline Gia_Obj_t * Gia_ObjFanout( Gia_Man_t * p, Gia_Obj_t * pObj, int i )  { return Gia_ManObj( p, Gia_ObjFanoutId(p, Gia_ObjId(p, pObj), i) );     }
 static inline void        Gia_ObjSetFanout( Gia_Man_t * p, Gia_Obj_t * pObj, int i, Gia_Obj_t * pFan )   { Vec_IntWriteEntry( p->vFanout, Gia_ObjFoffset(p, pObj) + i, Gia_ObjId(p, pFan) ); }
 
 #define Gia_ObjForEachFanoutStatic( p, pObj, pFanout, i )      \
     for ( i = 0; (i < Gia_ObjFanoutNum(p, pObj))   && (((pFanout) = Gia_ObjFanout(p, pObj, i)), 1); i++ )
+#define Gia_ObjForEachFanoutStaticId( p, Id, FanId, i )      \
+    for ( i = 0; (i < Gia_ObjFanoutNumId(p, Id))   && (((FanId) = Gia_ObjFanoutId(p, Id, i)), 1); i++ )
 
 static inline int         Gia_ManHasMapping( Gia_Man_t * p )                { return p->vMapping != NULL;                }
 static inline int         Gia_ObjIsLut( Gia_Man_t * p, int Id )             { return Vec_IntEntry(p->vMapping, Id) != 0; }
@@ -892,6 +901,8 @@ static inline int         Gia_ObjLutFanin( Gia_Man_t * p, int Id, int i )   { re
     for ( i = 1; (i < p->nObjs) && ((pObj) = Gia_ManObj(p, i)); i++ )
 #define Gia_ManForEachObjVec( vVec, p, pObj, i )                        \
     for ( i = 0; (i < Vec_IntSize(vVec)) && ((pObj) = Gia_ManObj(p, Vec_IntEntry(vVec,i))); i++ )
+#define Gia_ManForEachObjVecReverse( vVec, p, pObj, i )                        \
+    for ( i = Vec_IntSize(vVec) - 1; (i >= 0) && ((pObj) = Gia_ManObj(p, Vec_IntEntry(vVec,i))); i-- )
 #define Gia_ManForEachObjVecLit( vVec, p, pObj, fCompl, i )             \
     for ( i = 0; (i < Vec_IntSize(vVec)) && ((pObj) = Gia_ManObj(p, Abc_Lit2Var(Vec_IntEntry(vVec,i)))) && (((fCompl) = Abc_LitIsCompl(Vec_IntEntry(vVec,i))),1); i++ )
 #define Gia_ManForEachObjReverse( p, pObj, i )                          \
@@ -908,6 +919,8 @@ static inline int         Gia_ObjLutFanin( Gia_Man_t * p, int Id, int i )   { re
     for ( i = 0; (i < p->nObjs) && ((pObj) = Gia_ManObj(p, i)); i++ )      if ( !Gia_ObjIsMuxId(p, i) ) {} else
 #define Gia_ManForEachCi( p, pObj, i )                                  \
     for ( i = 0; (i < Vec_IntSize(p->vCis)) && ((pObj) = Gia_ManCi(p, i)); i++ )
+#define Gia_ManForEachCiReverse( p, pObj, i )                           \
+    for ( i = Vec_IntSize(p->vCis) - 1; (i >= 0) && ((pObj) = Gia_ManCi(p, i)); i-- )
 #define Gia_ManForEachCo( p, pObj, i )                                  \
     for ( i = 0; (i < Vec_IntSize(p->vCos)) && ((pObj) = Gia_ManCo(p, i)); i++ )
 #define Gia_ManForEachCoReverse( p, pObj, i )                           \
@@ -1089,7 +1102,7 @@ extern void                Gia_ManHashProfile( Gia_Man_t * p );
 extern int                 Gia_ManHashLookup( Gia_Man_t * p, Gia_Obj_t * p0, Gia_Obj_t * p1 );
 extern int                 Gia_ManHashAndMulti( Gia_Man_t * p, Vec_Int_t * vLits );
 /*=== giaIf.c ===========================================================*/
-extern void                Gia_ManPrintMappingStats( Gia_Man_t * p, int fDumpFile );
+extern void                Gia_ManPrintMappingStats( Gia_Man_t * p, char * pDumpFile );
 extern void                Gia_ManPrintPackingStats( Gia_Man_t * p );
 extern void                Gia_ManPrintLutStats( Gia_Man_t * p );
 extern int                 Gia_ManLutFaninCount( Gia_Man_t * p );
@@ -1223,6 +1236,7 @@ extern word *              Gia_ObjComputeTruthTableCut( Gia_Man_t * p, Gia_Obj_t
 extern Gia_Man_t *         Gia_ManReduceConst( Gia_Man_t * pAig, int fVerbose );
 /*=== giaUtil.c ===========================================================*/
 extern unsigned            Gia_ManRandom( int fReset );
+extern word                Gia_ManRandomW( int fReset );
 extern void                Gia_ManRandomInfo( Vec_Ptr_t * vInfo, int iInputStart, int iWordStart, int iWordStop );
 extern char *              Gia_TimeStamp();
 extern char *              Gia_FileNameGenericAppend( char * pBase, char * pSuffix );

@@ -87,7 +87,7 @@ int Kit_TruthIsop( unsigned * puTruth, int nVars, Vec_Int_t * vMemory, int fTryB
         if ( pcRes2->nCubes >= 0 )
         {
             assert( Kit_TruthIsEqual( puTruth, pResult, nVars ) );
-            if ( pcRes->nCubes > pcRes2->nCubes )
+            if ( pcRes->nCubes > pcRes2->nCubes || (pcRes->nCubes == pcRes2->nCubes && pcRes->nLits > pcRes2->nLits) )
             {
                 RetValue = 1;
                 pcRes = pcRes2;
@@ -100,6 +100,35 @@ int Kit_TruthIsop( unsigned * puTruth, int nVars, Vec_Int_t * vMemory, int fTryB
     memmove( vMemory->pArray, pcRes->pCubes, pcRes->nCubes * sizeof(unsigned) );
     Vec_IntShrink( vMemory, pcRes->nCubes );
     return RetValue;
+}
+void Kit_TruthIsopPrintCover( Vec_Int_t * vCover, int nVars, int fCompl )
+{
+    int i, k, Entry, Literal;
+    if ( Vec_IntSize(vCover) == 0 || (Vec_IntSize(vCover) == 1 && Vec_IntEntry(vCover, 0) == 0) )
+    {
+        printf( "Constant %d\n", Vec_IntSize(vCover) );
+        return;
+    }
+    Vec_IntForEachEntry( vCover, Entry, i )
+    { 
+        for ( k = 0; k < nVars; k++ )
+        {
+            Literal = 3 & (Entry >> (k << 1));
+            if ( Literal == 1 ) // neg literal
+                printf( "0" );
+            else if ( Literal == 2 ) // pos literal
+                printf( "1" );
+            else if ( Literal == 0 ) 
+                printf( "-" );
+            else assert( 0 );
+        }
+        printf( " %d\n", !fCompl );
+    }
+}
+void Kit_TruthIsopPrint( unsigned * puTruth, int nVars, Vec_Int_t * vCover, int fTryBoth )
+{
+    int fCompl = Kit_TruthIsop( puTruth, nVars, vCover, fTryBoth );
+    Kit_TruthIsopPrintCover( vCover, nVars, fCompl );
 }
 
 /**Function*************************************************************
@@ -132,6 +161,7 @@ unsigned * Kit_TruthIsop_rec( unsigned * puOn, unsigned * puOnDc, int nVars, Kit
     // check for constants
     if ( Kit_TruthIsConst0( puOn, nVars ) )
     {
+        pcRes->nLits  = 0;
         pcRes->nCubes = 0;
         pcRes->pCubes = NULL;
         Kit_TruthClear( pTemp, nVars );
@@ -139,6 +169,7 @@ unsigned * Kit_TruthIsop_rec( unsigned * puOn, unsigned * puOnDc, int nVars, Kit
     }
     if ( Kit_TruthIsConst1( puOnDc, nVars ) )
     {
+        pcRes->nLits  = 0;
         pcRes->nCubes = 1;
         pcRes->pCubes = Vec_IntFetch( vStore, 1 );
         if ( pcRes->pCubes == NULL )
@@ -197,6 +228,7 @@ unsigned * Kit_TruthIsop_rec( unsigned * puOn, unsigned * puOnDc, int nVars, Kit
         return NULL;
     }
     // create the resulting cover
+    pcRes->nLits  = pcRes0->nLits  + pcRes1->nLits  + pcRes2->nLits + pcRes0->nCubes + pcRes1->nCubes;
     pcRes->nCubes = pcRes0->nCubes + pcRes1->nCubes + pcRes2->nCubes;
     pcRes->pCubes = Vec_IntFetch( vStore, pcRes->nCubes );
     if ( pcRes->pCubes == NULL )
@@ -248,12 +280,14 @@ unsigned Kit_TruthIsop5_rec( unsigned uOn, unsigned uOnDc, int nVars, Kit_Sop_t 
     assert( (uOn & ~uOnDc) == 0 );
     if ( uOn == 0 )
     {
+        pcRes->nLits  = 0;
         pcRes->nCubes = 0;
         pcRes->pCubes = NULL;
         return 0;
     }
     if ( uOnDc == 0xFFFFFFFF )
     {
+        pcRes->nLits  = 0;
         pcRes->nCubes = 1;
         pcRes->pCubes = Vec_IntFetch( vStore, 1 );
         if ( pcRes->pCubes == NULL )
@@ -298,6 +332,7 @@ unsigned Kit_TruthIsop5_rec( unsigned uOn, unsigned uOnDc, int nVars, Kit_Sop_t 
         return 0;
     }
     // create the resulting cover
+    pcRes->nLits  = pcRes0->nLits  + pcRes1->nLits  + pcRes2->nLits + pcRes0->nCubes + pcRes1->nCubes;
     pcRes->nCubes = pcRes0->nCubes + pcRes1->nCubes + pcRes2->nCubes;
     pcRes->pCubes = Vec_IntFetch( vStore, pcRes->nCubes );
     if ( pcRes->pCubes == NULL )

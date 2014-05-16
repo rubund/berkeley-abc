@@ -1,4 +1,4 @@
 The source for abc is downloaded from the repository with:
  hg clone https://bitbucket.org/alanmi/abc abc
  hg pull
- hg update -r 2058c8ccea68
+ hg update -r 67c84cdd49e4

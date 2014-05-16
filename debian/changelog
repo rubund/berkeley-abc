@@ -1,4 +1,10 @@
-yosys-abc (1.01-hg2058c8ccea68-1~precise) precise; urgency=low
+yosys-abc (1.01-hg2-67c84cdd49e4-1~trusty) trusty; urgency=low
+
+  * New package with upstream changes
+
+ -- Ruben Undheim <ruben.undheim@gmail.com>  Fri, 17 May 2014 00:44:14 +0200
+
+yosys-abc (1.01-hg2058c8ccea68-1~trusty) trusty; urgency=low
 
   * Initial ubuntu package of ABC for yosys
 

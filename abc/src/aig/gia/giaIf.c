@@ -22,6 +22,12 @@
 #include "aig/aig/aig.h"
 #include "map/if/if.h"
 #include "bool/kit/kit.h"
+#include "base/main/main.h"
+#include "sat/bsat/satSolver.h"
+
+#ifdef WIN32
+#include <windows.h>
+#endif
 
 ABC_NAMESPACE_IMPL_START
 
@@ -71,7 +77,6 @@ void Gia_ManSetIfParsDefault( void * pp )
     p->fEdge       =  1;
     p->fPower      =  0;
     p->fCutMin     =  0;
-    p->fSeqMap     =  0;
     p->fVerbose    =  0;
     p->pLutStruct  =  NULL;
     // internal parameters
@@ -303,10 +308,11 @@ int Gia_ManComputeOverlap( Gia_Man_t * p )
   SeeAlso     []
 
 ***********************************************************************/
-void Gia_ManPrintMappingStats( Gia_Man_t * p, int fDumpFile )
+void Gia_ManPrintMappingStats( Gia_Man_t * p, char * pDumpFile )
 {
+    Gia_Obj_t * pObj;
     int * pLevels;
-    int i, k, iFan, nLutSize = 0, nLuts = 0, nFanins = 0, LevelMax = 0;
+    int i, k, iFan, nLutSize = 0, nLuts = 0, nFanins = 0, LevelMax = 0, Ave = 0;
     if ( !Gia_ManHasMapping(p) )
         return;
     pLevels = ABC_CALLOC( int, Gia_ManObjNum(p) );
@@ -320,21 +326,43 @@ void Gia_ManPrintMappingStats( Gia_Man_t * p, int fDumpFile )
         pLevels[i]++;
         LevelMax = Abc_MaxInt( LevelMax, pLevels[i] );
     }
+    Gia_ManForEachCo( p, pObj, i )
+        Ave += pLevels[Gia_ObjFaninId0p(p, pObj)];
     ABC_FREE( pLevels );
+
+#ifdef WIN32
+    {
+    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     Abc_Print( 1, "Mapping (K=%d)  :  ", nLutSize );
-    Abc_Print( 1, "lut =%7d  ", nLuts );
+    SetConsoleTextAttribute( hConsole, 14 ); // yellow
+    Abc_Print( 1, "lut =%7d  ",  nLuts );
+    SetConsoleTextAttribute( hConsole, 10 ); // green
     Abc_Print( 1, "edge =%8d  ", nFanins );
-    Abc_Print( 1, "lev =%5d  ", LevelMax );
+    SetConsoleTextAttribute( hConsole, 12 ); // red
+    Abc_Print( 1, "lev =%5d ",   LevelMax );
+    Abc_Print( 1, "(%.2f)  ",    (float)Ave / Gia_ManCoNum(p) );
+    SetConsoleTextAttribute( hConsole, 7 );  // normal
     Abc_Print( 1, "over =%5.1f %%  ", 100.0 * Gia_ManComputeOverlap(p) / Gia_ManAndNum(p) );
     Abc_Print( 1, "mem =%5.2f MB", 4.0*(Gia_ManObjNum(p) + 2*nLuts + nFanins)/(1<<20) );
     Abc_Print( 1, "\n" );
+    }
+#else
+    Abc_Print( 1, "Mapping (K=%d)  :  ", nLutSize );
+    Abc_Print( 1, "%slut =%7d%s  ",  "\033[1;33m", nLuts,    "\033[0m" );  // yellow
+    Abc_Print( 1, "%sedge =%8d%s  ", "\033[1;32m", nFanins,  "\033[0m" );  // green
+    Abc_Print( 1, "%slev =%5d%s ",   "\033[1;31m", LevelMax, "\033[0m" );  // red
+    Abc_Print( 1, "%s(%.2f)%s  ",    "\033[1;31m", (float)Ave / Gia_ManCoNum(p), "\033[0m" );
+    Abc_Print( 1, "over =%5.1f %%  ", 100.0 * Gia_ManComputeOverlap(p) / Gia_ManAndNum(p) );
+    Abc_Print( 1, "mem =%5.2f MB", 4.0*(Gia_ManObjNum(p) + 2*nLuts + nFanins)/(1<<20) );
+    Abc_Print( 1, "\n" );
+#endif
 
-    if ( fDumpFile )
+
+    if ( pDumpFile )
     {
-        char * pFileName = "stats_map.txt";
         static char FileNameOld[1000] = {0};
         static abctime clk = 0;
-        FILE * pTable = fopen( pFileName, "a+" );
+        FILE * pTable = fopen( pDumpFile, "a+" );
         if ( strcmp( FileNameOld, p->pName ) )
         {
             sprintf( FileNameOld, "%s", p->pName );
@@ -352,7 +380,8 @@ void Gia_ManPrintMappingStats( Gia_Man_t * p, int fDumpFile )
             fprintf( pTable, " " );
             fprintf( pTable, "%d ", nLuts           );
             fprintf( pTable, "%d ", LevelMax        );
-//            fprintf( pTable, "%.2f", 1.0*(Abc_Clock() - clk)/CLOCKS_PER_SEC );
+            fprintf( pTable, "%.2f", 1.0*(Abc_Clock() - clk)/CLOCKS_PER_SEC );
+            clk = Abc_Clock();
         }
         fclose( pTable );
     }
@@ -616,10 +645,9 @@ If_Man_t * Gia_ManToIf( Gia_Man_t * p, If_Par_t * pPars )
     return pIfMan;
 }
 
-
 /**Function*************************************************************
 
-  Synopsis    [Derives node's AIG after SOP balancing]
+  Synopsis    [Rebuilds GIA from mini AIG.]
 
   Description []
                
@@ -628,44 +656,51 @@ If_Man_t * Gia_ManToIf( Gia_Man_t * p, If_Par_t * pPars )
   SeeAlso     []
 
 ***********************************************************************/
-int Gia_ManNodeIfSopToGiaInt( Gia_Man_t * pNew, Vec_Wrd_t * vAnds, int nVars, Vec_Int_t * vLeaves, int fHash )
+int Gia_ManBuildFromMiniInt( Gia_Man_t * pNew, Vec_Int_t * vLeaves, Vec_Int_t * vAig, int fHash )
 {
-    Vec_Int_t * vResults;
-    int iRes0, iRes1, iRes = -1;
-    If_And_t This;
-    word Entry;
-    int i;
-    if ( Vec_WrdSize(vAnds) == 0 )
-        return 0;
-    if ( Vec_WrdSize(vAnds) == 1 && Vec_WrdEntry(vAnds,0) == 0 )
-        return 1;
-    vResults = Vec_IntAlloc( Vec_WrdSize(vAnds) );
-    for ( i = 0; i < nVars; i++ )
-        Vec_IntPush( vResults, Vec_IntEntry(vLeaves, i) );
-    Vec_WrdForEachEntryStart( vAnds, Entry, i, nVars )
+    assert( Vec_IntSize(vAig) > 0 );
+    assert( Vec_IntEntryLast(vAig) < 2 );
+    if ( Vec_IntSize(vAig) == 1 ) // const
+        return Vec_IntEntry(vAig, 0);
+    if ( Vec_IntSize(vAig) == 2 ) // variable
     {
-        This  = If_WrdToAnd( Entry );
-        iRes0 = Abc_LitNotCond( Vec_IntEntry(vResults, This.iFan0), This.fCompl0 ); 
-        iRes1 = Abc_LitNotCond( Vec_IntEntry(vResults, This.iFan1), This.fCompl1 ); 
-        if ( fHash )
-            iRes  = Gia_ManHashAnd( pNew, iRes0, iRes1 );
-        else if ( iRes0 == iRes1 )
-            iRes = iRes0;
-        else
-            iRes  = Gia_ManAppendAnd( pNew, iRes0, iRes1 );
-        Vec_IntPush( vResults, iRes );
+        assert( Vec_IntEntry(vAig, 0) == 0 );
+        assert( Vec_IntSize(vLeaves) == 1 );
+        return Abc_LitNotCond( Vec_IntEntry(vLeaves, 0), Vec_IntEntry(vAig, 1) );
     }
-    Vec_IntFree( vResults );
-    return Abc_LitNotCond( iRes, This.fCompl );
+    else
+    {
+        int nLeaves = Vec_IntSize(vLeaves);
+        int i, iVar0, iVar1, iLit0, iLit1, iLit = 0;
+        assert( Vec_IntSize(vAig) & 1 );
+        Vec_IntForEachEntryDouble( vAig, iLit0, iLit1, i )
+        {
+            iVar0 = Abc_Lit2Var( iLit0 );
+            iVar1 = Abc_Lit2Var( iLit1 );
+            iLit0 = Abc_LitNotCond( iVar0 < nLeaves ? Vec_IntEntry(vLeaves, iVar0) : Vec_IntEntry(vAig, iVar0 - nLeaves), Abc_LitIsCompl(iLit0) );
+            iLit1 = Abc_LitNotCond( iVar1 < nLeaves ? Vec_IntEntry(vLeaves, iVar1) : Vec_IntEntry(vAig, iVar1 - nLeaves), Abc_LitIsCompl(iLit1) );
+            if ( fHash )
+                iLit = Gia_ManHashAnd( pNew, iLit0, iLit1 );
+            else if ( iLit0 == iLit1 )
+                iLit = iLit0;
+            else
+                iLit = Gia_ManAppendAnd( pNew, iLit0, iLit1 );
+            assert( (i & 1) == 0 );
+            Vec_IntWriteEntry( vAig, Abc_Lit2Var(i), iLit );  // overwriting entries
+        }
+        assert( i == Vec_IntSize(vAig) - 1 );
+        iLit = Abc_LitNotCond( iLit, Vec_IntEntry(vAig, i) );
+        Vec_IntClear( vAig ); // useless
+        return iLit;
+    }
 }
-int Gia_ManNodeIfSopToGia( Gia_Man_t * pNew, If_Man_t * p, If_Cut_t * pCut, Vec_Int_t * vLeaves, int fHash )
+int Gia_ManBuildFromMini( Gia_Man_t * pNew, If_Man_t * pIfMan, If_Cut_t * pCut, Vec_Int_t * vLeaves, Vec_Int_t * vAig, int fHash, int fUseDsd )
 {
-    int iResult;
-    Vec_Wrd_t * vArray;
-    vArray  = If_CutDelaySopArray( p, pCut );
-    iResult = Gia_ManNodeIfSopToGiaInt( pNew, vArray, If_CutLeaveNum(pCut), vLeaves, fHash );
-//    Vec_WrdFree( vArray );
-    return iResult;
+    if ( fUseDsd )
+        If_CutDsdBalanceEval( pIfMan, pCut, vAig );
+    else
+        If_CutSopBalanceEval( pIfMan, pCut, vAig );
+    return Gia_ManBuildFromMiniInt( pNew, vLeaves, vAig, fHash );
 }
 
 /**Function*************************************************************
@@ -682,19 +717,19 @@ int Gia_ManNodeIfSopToGia( Gia_Man_t * pNew, If_Man_t * p, If_Cut_t * pCut, Vec_
 Gia_Man_t * Gia_ManFromIfAig( If_Man_t * pIfMan )
 {
     int fHash = 0;
-    Gia_Man_t * pNew;
+    Gia_Man_t * pNew, * pTemp;
     If_Obj_t * pIfObj, * pIfLeaf;
     If_Cut_t * pCutBest;
     Vec_Int_t * vLeaves;
-    Vec_Int_t * vCover;
+    Vec_Int_t * vAig;
     int i, k;
     assert( pIfMan->pPars->pLutStruct == NULL );
-    assert( pIfMan->pPars->fDelayOpt || pIfMan->pPars->fUserRecLib );
+    assert( pIfMan->pPars->fDelayOpt || pIfMan->pPars->fDsdBalance || pIfMan->pPars->fUserRecLib );
     // create new manager
     pNew = Gia_ManStart( If_ManObjNum(pIfMan) );
     Gia_ManHashAlloc( pNew );
     // iterate through nodes used in the mapping
-    vCover = Vec_IntAlloc( 1 << 16 );
+    vAig = Vec_IntAlloc( 1 << 16 );
     vLeaves = Vec_IntAlloc( 16 );
     If_ManCleanCutData( pIfMan );
     If_ManForEachObj( pIfMan, pIfObj, i )
@@ -710,7 +745,9 @@ Gia_Man_t * Gia_ManFromIfAig( If_Man_t * pIfMan )
                 Vec_IntPush( vLeaves, pIfLeaf->iCopy );
             // get the functionality
             if ( pIfMan->pPars->fDelayOpt )
-                pIfObj->iCopy = Gia_ManNodeIfSopToGia( pNew, pIfMan, pCutBest, vLeaves, fHash );
+                pIfObj->iCopy = Gia_ManBuildFromMini( pNew, pIfMan, pCutBest, vLeaves, vAig, fHash, 0 );
+            else if ( pIfMan->pPars->fDsdBalance )
+                pIfObj->iCopy = Gia_ManBuildFromMini( pNew, pIfMan, pCutBest, vLeaves, vAig, fHash, 1 );
             else if ( pIfMan->pPars->fUserRecLib )
                 pIfObj->iCopy = Abc_RecToGia3( pNew, pIfMan, pCutBest, vLeaves, fHash );
             else assert( 0 );
@@ -723,9 +760,10 @@ Gia_Man_t * Gia_ManFromIfAig( If_Man_t * pIfMan )
             pIfObj->iCopy = 1;
         else assert( 0 );
     }
-    Vec_IntFree( vCover );
+    Vec_IntFree( vAig );
     Vec_IntFree( vLeaves );
-    Gia_ManHashStop( pNew );
+    pNew = Gia_ManRehash( pTemp = pNew, 0 );
+    Gia_ManStop( pTemp );
     return pNew;
 }
 
@@ -842,7 +880,7 @@ int Gia_ManFromIfLogicNode( void * pIfMan, Gia_Man_t * pNew, int iObj, Vec_Int_t
             // create mapping
             iObjLit1 = Gia_ManFromIfLogicCreateLut( pNew, pRes, vLeaves, vCover, vMapping, vMapping2 );
             // write packing
-            if ( !Gia_ObjIsCi(Gia_ManObj(pNew, Abc_Lit2Var(iObjLit1))) )
+            if ( !Gia_ObjIsCi(Gia_ManObj(pNew, Abc_Lit2Var(iObjLit1))) && iObjLit1 > 1 )
             {
                 Vec_IntPush( vPacking, 1 );
                 Vec_IntPush( vPacking, Abc_Lit2Var(iObjLit1) );
@@ -884,7 +922,7 @@ int Gia_ManFromIfLogicNode( void * pIfMan, Gia_Man_t * pNew, int iObj, Vec_Int_t
         // create mapping
         iObjLit1 = Gia_ManFromIfLogicCreateLut( pNew, pRes, vLeaves, vCover, vMapping, vMapping2 );
         // write packing
-        if ( !Gia_ObjIsCi(Gia_ManObj(pNew, Abc_Lit2Var(iObjLit1))) )
+        if ( !Gia_ObjIsCi(Gia_ManObj(pNew, Abc_Lit2Var(iObjLit1))) && iObjLit1 > 1 )
         {
             Vec_IntPush( vPacking, 1 );
             Vec_IntPush( vPacking, Abc_Lit2Var(iObjLit1) );
@@ -1169,23 +1207,83 @@ int Gia_ManNodeIfToGia( Gia_Man_t * pNew, If_Man_t * pIfMan, If_Obj_t * pIfObj, 
   SeeAlso     []
 
 ***********************************************************************/
-static inline word Gia_ManTt6Stretch( word t, int nVars )
+int Gia_ManFromIfLogicFindLut( If_Man_t * pIfMan, Gia_Man_t * pNew, If_Cut_t * pCutBest, sat_solver * pSat, Vec_Int_t * vLeaves, Vec_Int_t * vLits, Vec_Int_t * vCover, Vec_Int_t * vMapping, Vec_Int_t * vMapping2, Vec_Int_t * vPacking )
 {
-    assert( nVars >= 0 );
-    if ( nVars == 0 )
-        nVars++, t = (t & 0x1) | ((t & 0x1) << 1);
-    if ( nVars == 1 )
-        nVars++, t = (t & 0x3) | ((t & 0x3) << 2);
-    if ( nVars == 2 )
-        nVars++, t = (t & 0xF) | ((t & 0xF) << 4);
-    if ( nVars == 3 )
-        nVars++, t = (t & 0xFF) | ((t & 0xFF) << 8);
-    if ( nVars == 4 )
-        nVars++, t = (t & 0xFFFF) | ((t & 0xFFFF) << 16);
-    if ( nVars == 5 )
-        nVars++, t = (t & 0xFFFFFFFF) | ((t & 0xFFFFFFFF) << 32);
-    assert( nVars == 6 );
-    return t;
+    word uBound, uFree;
+    int nLutSize = (int)(pIfMan->pPars->pLutStruct[0] - '0');
+    int nVarsF = 0, pVarsF[IF_MAX_FUNC_LUTSIZE];
+    int nVarsB = 0, pVarsB[IF_MAX_FUNC_LUTSIZE];
+    int nVarsS = 0, pVarsS[IF_MAX_FUNC_LUTSIZE];
+    unsigned uSetNew, uSetOld;
+    int RetValue, RetValue2, k;
+    char * pPerm;
+    if ( Vec_IntSize(vLeaves) <= nLutSize )
+    {
+        RetValue = Gia_ManFromIfLogicCreateLut( pNew, If_CutTruthW(pIfMan, pCutBest), vLeaves, vCover, vMapping, vMapping2 );
+        // write packing
+        if ( !Gia_ObjIsCi(Gia_ManObj(pNew, Abc_Lit2Var(RetValue))) && RetValue > 1 )
+        {
+            Vec_IntPush( vPacking, 1 );
+            Vec_IntPush( vPacking, Abc_Lit2Var(RetValue) );
+            Vec_IntAddToEntry( vPacking, 0, 1 );
+        }
+        return RetValue;
+    }
+    assert( If_DsdManSuppSize(pIfMan->pIfDsdMan, If_CutDsdLit(pIfMan, pCutBest)) == (int)pCutBest->nLeaves );
+    // find the bound set
+    if ( pIfMan->pPars->fDelayOptLut )
+        uSetOld = pCutBest->uMaskFunc;
+    else
+        uSetOld = If_DsdManCheckXY( pIfMan->pIfDsdMan, If_CutDsdLit(pIfMan, pCutBest), nLutSize, 1, 0, 1, 0 );
+    // remap bound set
+    uSetNew = 0;
+    pPerm = If_CutDsdPerm( pIfMan, pCutBest );
+    for ( k = 0; k < If_CutLeaveNum(pCutBest); k++ )
+    {
+        int iVar = Abc_Lit2Var((int)pPerm[k]);
+        int Value = ((uSetOld >> (k << 1)) & 3);
+        if ( Value == 1 )
+            uSetNew |= (1 << (2*iVar));
+        else if ( Value == 3 )
+            uSetNew |= (3 << (2*iVar));
+        else assert( Value == 0 );
+    }
+    RetValue = If_ManSatCheckXY( pSat, nLutSize, If_CutTruthW(pIfMan, pCutBest), pCutBest->nLeaves, uSetNew, &uBound, &uFree, vLits );
+    assert( RetValue );
+    // collect variables
+    for ( k = 0; k < If_CutLeaveNum(pCutBest); k++ )
+    {
+        int Value = ((uSetNew >> (k << 1)) & 3);
+        if ( Value == 0 )
+            pVarsF[nVarsF++] = k;
+        else if ( Value == 1 )
+            pVarsB[nVarsB++] = k;
+        else if ( Value == 3 )
+            pVarsS[nVarsS++] = k;
+        else assert( Value == 0 );
+    }
+    // collect bound set variables
+    Vec_IntClear( vLits );
+    for ( k = 0; k < nVarsS; k++ )
+        Vec_IntPush( vLits, Vec_IntEntry(vLeaves, pVarsS[k]) );
+    for ( k = 0; k < nVarsB; k++ )
+        Vec_IntPush( vLits, Vec_IntEntry(vLeaves, pVarsB[k]) );
+    RetValue = Gia_ManFromIfLogicCreateLut( pNew, &uBound, vLits, vCover, vMapping, vMapping2 );
+    // collecct free set variables
+    Vec_IntClear( vLits );
+    Vec_IntPush( vLits, RetValue );
+    for ( k = 0; k < nVarsS; k++ )
+        Vec_IntPush( vLits, Vec_IntEntry(vLeaves, pVarsS[k]) );
+    for ( k = 0; k < nVarsF; k++ )
+        Vec_IntPush( vLits, Vec_IntEntry(vLeaves, pVarsF[k]) );
+    // add packing
+    RetValue2 = Gia_ManFromIfLogicCreateLut( pNew, &uFree, vLits, vCover, vMapping, vMapping2 );
+    // write packing
+    Vec_IntPush( vPacking, 2 );
+    Vec_IntPush( vPacking, Abc_Lit2Var(RetValue) );
+    Vec_IntPush( vPacking, Abc_Lit2Var(RetValue2) );
+    Vec_IntAddToEntry( vPacking, 0, 1 );
+    return RetValue2;
 }
 
 /**Function*************************************************************
@@ -1205,8 +1303,8 @@ Gia_Man_t * Gia_ManFromIfLogic( If_Man_t * pIfMan )
     If_Cut_t * pCutBest;
     If_Obj_t * pIfObj, * pIfLeaf;
     Vec_Int_t * vMapping, * vMapping2, * vPacking = NULL;
-    Vec_Int_t * vLeaves, * vLeaves2, * vCover;
-    word Truth = 0, * pTruthTable;
+    Vec_Int_t * vLeaves, * vLeaves2, * vCover, * vLits;
+    sat_solver * pSat = NULL;
     int i, k, Entry;
     assert( !pIfMan->pPars->fDeriveLuts || pIfMan->pPars->fTruth );
 //    if ( pIfMan->pPars->fEnableCheck07 )
@@ -1222,6 +1320,7 @@ Gia_Man_t * Gia_ManFromIfLogic( If_Man_t * pIfMan )
     // create new manager
     pNew = Gia_ManStart( If_ManObjNum(pIfMan) );
     // iterate through nodes used in the mapping
+    vLits    = Vec_IntAlloc( 1000 );
     vCover   = Vec_IntAlloc( 1 << 16 );
     vLeaves  = Vec_IntAlloc( 16 );
     vLeaves2 = Vec_IntAlloc( 16 );
@@ -1234,25 +1333,32 @@ Gia_Man_t * Gia_ManFromIfLogic( If_Man_t * pIfMan )
         {
             pCutBest = If_ObjCutBest( pIfObj );
             // perform sorting of cut leaves by delay, so that the slowest pin drives the fastest input of the LUT
-            if ( !pIfMan->pPars->fDelayOpt && !pIfMan->pPars->pLutStruct && !pIfMan->pPars->fUserRecLib && !pIfMan->pPars->nGateSize && !pIfMan->pPars->fEnableCheck75 && !pIfMan->pPars->fEnableCheck75u && !pIfMan->pPars->fEnableCheck07 )
+            if ( !pIfMan->pPars->fUseTtPerm && !pIfMan->pPars->fDelayOpt && !pIfMan->pPars->fDelayOptLut && !pIfMan->pPars->fDsdBalance && !pIfMan->pPars->pLutStruct && !pIfMan->pPars->fUserRecLib && !pIfMan->pPars->nGateSize && !pIfMan->pPars->fEnableCheck75 && !pIfMan->pPars->fEnableCheck75u && !pIfMan->pPars->fEnableCheck07 )
                 If_CutRotatePins( pIfMan, pCutBest );
             // collect leaves of the best cut
             Vec_IntClear( vLeaves );
             If_CutForEachLeaf( pIfMan, pCutBest, pIfLeaf, k )
                 Vec_IntPush( vLeaves, pIfLeaf->iCopy );
             // perform one of the two types of mapping: with and without structures
-            if ( pIfMan->pPars->fDeriveLuts && pIfMan->pPars->fTruth )
+            if ( pIfMan->pPars->fUseDsd && pIfMan->pPars->pLutStruct )
             {
-                // adjust the truth table
-                int nSize = pIfMan->pPars->nLutSize;
-                pTruthTable = (word *)If_CutTruth(pCutBest);
-                if ( nSize < 6 )
-                {
-                    Truth = Gia_ManTt6Stretch( *pTruthTable, nSize );
-                    pTruthTable = &Truth;
-                }
+                if ( pSat == NULL )
+                    pSat = (sat_solver *)If_ManSatBuildXY( (int)(pIfMan->pPars->pLutStruct[0] - '0') );
+                if ( pIfMan->pPars->pLutStruct && pIfMan->pPars->fDeriveLuts )
+                    pIfObj->iCopy = Gia_ManFromIfLogicFindLut( pIfMan, pNew, pCutBest, pSat, vLeaves, vLits, vCover, vMapping, vMapping2, vPacking );
+                else
+                    pIfObj->iCopy = Gia_ManFromIfLogicCreateLut( pNew, If_CutTruthW(pIfMan, pCutBest), vLeaves, vCover, vMapping, vMapping2 );
+                pIfObj->iCopy = Abc_LitNotCond( pIfObj->iCopy, pCutBest->fCompl );
+            }
+            else if ( (pIfMan->pPars->fDeriveLuts && pIfMan->pPars->fTruth) || pIfMan->pPars->fUseDsd || pIfMan->pPars->fUseTtPerm )
+            {
+                word * pTruth = If_CutTruthW(pIfMan, pCutBest);
+                if ( pIfMan->pPars->fUseTtPerm )
+                    for ( k = 0; k < (int)pCutBest->nLeaves; k++ )
+                        if ( If_CutLeafBit(pCutBest, k) )
+                            Abc_TtFlip( pTruth, Abc_TtWordNum(pCutBest->nLeaves), k );
                 // perform decomposition of the cut
-                pIfObj->iCopy = Gia_ManFromIfLogicNode( pIfMan, pNew, i, vLeaves, vLeaves2, pTruthTable, pIfMan->pPars->pLutStruct, vCover, vMapping, vMapping2, vPacking, (pIfMan->pPars->fEnableCheck75 || pIfMan->pPars->fEnableCheck75u), pIfMan->pPars->fEnableCheck07 );
+                pIfObj->iCopy = Gia_ManFromIfLogicNode( pIfMan, pNew, i, vLeaves, vLeaves2, pTruth, pIfMan->pPars->pLutStruct, vCover, vMapping, vMapping2, vPacking, (pIfMan->pPars->fEnableCheck75 || pIfMan->pPars->fEnableCheck75u), pIfMan->pPars->fEnableCheck07 );
                 pIfObj->iCopy = Abc_LitNotCond( pIfObj->iCopy, pCutBest->fCompl );
             }
             else
@@ -1282,9 +1388,12 @@ Gia_Man_t * Gia_ManFromIfLogic( If_Man_t * pIfMan )
         }
         else assert( 0 );
     }
+    Vec_IntFree( vLits );
     Vec_IntFree( vCover );
     Vec_IntFree( vLeaves );
     Vec_IntFree( vLeaves2 );
+    if ( pSat != NULL )
+        sat_solver_delete(pSat);
 //    printf( "Mapping array size:  IfMan = %d. Gia = %d. Increase = %.2f\n", 
 //        If_ManObjNum(pIfMan), Gia_ManObjNum(pNew), 1.0 * Gia_ManObjNum(pNew) / If_ManObjNum(pIfMan) );
     // finish mapping 
@@ -1466,8 +1575,9 @@ Gia_Man_t * Gia_ManPerformMapping( Gia_Man_t * p, void * pp, int fNormalized )
     If_Man_t * pIfMan;
     If_Par_t * pPars = (If_Par_t *)pp;
     // disable cut minimization when GIA strucure is needed
-    if ( !pPars->fDelayOpt && !pPars->fUserRecLib && !pPars->fDeriveLuts )
+    if ( !pPars->fDelayOpt && !pPars->fDelayOptLut && !pPars->fDsdBalance && !pPars->fUserRecLib && !pPars->fDeriveLuts && !pPars->fUseDsd && !pPars->fUseTtPerm )
         pPars->fCutMin = 0;
+
     // reconstruct GIA according to the hierarchy manager
     assert( pPars->pTimesArr == NULL );
     assert( pPars->pTimesReq == NULL );
@@ -1496,6 +1606,16 @@ Gia_Man_t * Gia_ManPerformMapping( Gia_Man_t * p, void * pp, int fNormalized )
         Gia_ManStop( p );
         return NULL;
     }
+    // create DSD manager
+    if ( pPars->fUseDsd )
+    {
+        If_DsdMan_t * p = (If_DsdMan_t *)Abc_FrameReadManDsd();
+        assert( pPars->nLutSize <= If_DsdManVarNum(p) );
+        assert( (pPars->pLutStruct == NULL && If_DsdManLutSize(p) == 0) || (pPars->pLutStruct && pPars->pLutStruct[0] - '0' == If_DsdManLutSize(p)) );
+        pIfMan->pIfDsdMan = (If_DsdMan_t *)Abc_FrameReadManDsd();
+        if ( pPars->fDsdBalance )
+            If_DsdManAllocIsops( pIfMan->pIfDsdMan, pPars->nLutSize );
+    }
     // compute switching for the IF objects
     if ( pPars->fPower )
     {
@@ -1516,7 +1636,7 @@ Gia_Man_t * Gia_ManPerformMapping( Gia_Man_t * p, void * pp, int fNormalized )
         return NULL;
     }
     // transform the result of mapping into the new network
-    if ( pIfMan->pPars->fDelayOpt || pIfMan->pPars->fUserRecLib )
+    if ( pIfMan->pPars->fDelayOpt || pIfMan->pPars->fDsdBalance || pIfMan->pPars->fUserRecLib )
         pNew = Gia_ManFromIfAig( pIfMan );
     else
         pNew = Gia_ManFromIfLogic( pIfMan );
@@ -1539,10 +1659,6 @@ Gia_Man_t * Gia_ManPerformMapping( Gia_Man_t * p, void * pp, int fNormalized )
     pNew->pAigExtra  = p->pAigExtra;  p->pAigExtra  = NULL;
     pNew->nAnd2Delay = p->nAnd2Delay; p->nAnd2Delay = 0;
     Gia_ManStop( p );
-//    printf( "PERFORMING VERIFICATION:\n" );
-//    Gia_ManVerifyWithBoxes( pNew, NULL );
-//    if ( pPars->fRepack )
-//        Gia_ManIffTest( pNew, pPars->pLutLib, pPars->fVerbose );
     return pNew;
 }
 

@@ -31,6 +31,7 @@ SRC +=	src/aig/gia/giaAig.c \
 	src/aig/gia/giaIso.c \
 	src/aig/gia/giaIso2.c \
 	src/aig/gia/giaJf.c \
+	src/aig/gia/giaKf.c \
 	src/aig/gia/giaMan.c \
 	src/aig/gia/giaMem.c \
 	src/aig/gia/giaMfs.c \
@@ -53,6 +54,7 @@ SRC +=	src/aig/gia/giaAig.c \
 	src/aig/gia/giaSweeper.c \
 	src/aig/gia/giaSwitch.c \
 	src/aig/gia/giaTim.c \
+	src/aig/gia/giaTis.c \
 	src/aig/gia/giaTruth.c \
 	src/aig/gia/giaTsim.c \
 	src/aig/gia/giaUtil.c

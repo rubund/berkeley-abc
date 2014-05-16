@@ -68,6 +68,14 @@ struct Gia_ManBmc_t_
 
 extern int Gia_ManToBridgeResult( FILE * pFile, int Result, Abc_Cex_t * pCex, int iPoProved );
 
+void Gia_ManReportProgress( FILE * pFile, int prop_no, int depth )
+{
+    extern int Gia_ManToBridgeProgress( FILE * pFile, int Size, unsigned char * pBuffer );
+    char buf[100];
+    sprintf(buf, "property: safe<%d>\nbug-free-depth: %d\n", prop_no, depth);
+    Gia_ManToBridgeProgress(pFile, strlen(buf), (unsigned char *)buf);
+}
+
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
 ////////////////////////////////////////////////////////////////////////
@@ -1384,13 +1392,16 @@ int Saig_ManBmcScalable( Aig_Man_t * pAig, Saig_ParBmc_t * pPars )
     Gia_ManBmc_t * p;
     Aig_Obj_t * pObj;
     Abc_Cex_t * pCexNew, * pCexNew0;
+    FILE * pLogFile = NULL;
     unsigned * pInfo;
     int RetValue = -1, fFirst = 1, nJumpFrame = 0, fUnfinished = 0;
     int nOutDigits = Abc_Base10Log( Saig_ManPoNum(pAig) );
     int i, f, k, Lit, status;
-    abctime clk, clk2, clkOther = 0, clkTotal = Abc_Clock();
+    abctime clk, clk2, clkSatRun, clkOther = 0, clkTotal = Abc_Clock();
     abctime nTimeUnsat = 0, nTimeSat = 0, nTimeUndec = 0, clkOne = 0;
     abctime nTimeToStopNG, nTimeToStop;
+    if ( pPars->pLogFileName )
+        pLogFile = fopen( pPars->pLogFileName, "wb" );
     if ( pPars->nTimeOutOne && pPars->nTimeOut == 0 )
         pPars->nTimeOut = pPars->nTimeOutOne * Saig_ManPoNum(pAig) / 1000 + 1;
     if ( pPars->nTimeOutOne && !pPars->fSolveAll )
@@ -1426,12 +1437,18 @@ int Saig_ManBmcScalable( Aig_Man_t * pAig, Saig_ParBmc_t * pPars )
         // stop BMC after exploring all reachable states
         if ( !pPars->nFramesJump && Aig_ManRegNum(pAig) < 30 && f == (1 << Aig_ManRegNum(pAig)) )
         {
+            Abc_Print( 1, "Stopping BMC because all 2^%d reachable states are visited.\n", Aig_ManRegNum(pAig) );
+            if ( p->pPars->fUseBridge )
+                Saig_ManForEachPo( pAig, pObj, i )
+                    if ( !(p->vCexes && Vec_PtrEntry(p->vCexes, i)) && !(p->pTime4Outs && p->pTime4Outs[i] == 0) ) // not SAT and not timed out
+                        Gia_ManToBridgeResult( stdout, 1, NULL, i );
             RetValue = pPars->nFailOuts ? 0 : 1;
             goto finish;
         }
         // stop BMC if all targets are solved
         if ( pPars->fSolveAll && pPars->nFailOuts + pPars->nDropOuts >= Saig_ManPoNum(pAig) )
         {
+            Abc_Print( 1, "Stopping BMC because all targets are disproved or timed out.\n" );
             RetValue = pPars->nFailOuts ? 0 : 1;
             goto finish;
         }
@@ -1528,15 +1545,19 @@ clkOther += Abc_Clock() - clk2;
             // solve this output
             fUnfinished = 0;
             sat_solver_compress( p->pSat );
-clk2 = Abc_Clock();
             if ( p->pTime4Outs )
             {
                 assert( p->pTime4Outs[i] > 0 );
                 clkOne = Abc_Clock();
                 sat_solver_set_runtime_limit( p->pSat, p->pTime4Outs[i] + Abc_Clock() );
             }
-//            status = sat_solver_solve( p->pSat, &Lit, &Lit + 1, (ABC_INT64_T)pPars->nConfLimit, (ABC_INT64_T)0, (ABC_INT64_T)0, (ABC_INT64_T)0 );
+clk2 = Abc_Clock();
             status = Saig_ManCallSolver( p, Lit );
+clkSatRun = Abc_Clock() - clk2;
+            if ( pLogFile )
+                fprintf( pLogFile, "Frame %5d  Output %5d  Time(ms) %8d %8d\n", f, i, 
+                    Lit < 2 ? 0 : (int)(clkSatRun * 1000 / CLOCKS_PER_SEC),
+                    Lit < 2 ? 0 : Abc_MaxInt(0, Abc_MinInt(pPars->nTimeOutOne, pPars->nTimeOutOne - (int)((p->pTime4Outs[i] - clkSatRun) * 1000 / CLOCKS_PER_SEC))) );
             if ( p->pTime4Outs )
             {
                 abctime timeSince = Abc_Clock() - clkOne;
@@ -1547,7 +1568,7 @@ clk2 = Abc_Clock();
             }
             if ( status == l_False )
             {
-nTimeUnsat += Abc_Clock() - clk2;
+nTimeUnsat += clkSatRun;
                 if ( Lit != 0 )
                 {
                     // add final unit clause
@@ -1565,10 +1586,12 @@ nTimeUnsat += Abc_Clock() - clk2;
                     // propagate units
                     sat_solver_compress( p->pSat );
                 }
+                if ( p->pPars->fUseBridge )
+                    Gia_ManReportProgress( stdout, i, f );
             }
             else if ( status == l_True )
             {
-nTimeSat += Abc_Clock() - clk2;
+nTimeSat += clkSatRun;
                 RetValue = 0;
                 fFirst = 0;
                 if ( !pPars->fSolveAll )
@@ -1644,7 +1667,11 @@ nTimeSat += Abc_Clock() - clk2;
                             nOutDigits, k, f, nOutDigits, pPars->nFailOuts, nOutDigits, Saig_ManPoNum(pAig) );
                     // report to the bridge
                     if ( p->pPars->fUseBridge )
+                    {
+                        // set the output number
+                        pCexNew0->iPo = k;
                         Gia_ManToBridgeResult( stdout, 0, pCexNew0, pCexNew0->iPo );
+                    }
                     // remember solved output
                     Vec_PtrWriteEntry( p->vCexes, k, Abc_CexDup(pCexNew, Saig_ManRegNum(pAig)) );
                 }
@@ -1653,7 +1680,7 @@ nTimeSat += Abc_Clock() - clk2;
             }
             else 
             {
-nTimeUndec += Abc_Clock() - clk2;
+nTimeUndec += clkSatRun;
                 assert( status == l_Undef );
                 if ( pPars->nFramesJump )
                 {
@@ -1717,6 +1744,8 @@ finish:
     }
     Saig_Bmc3ManStop( p );
     fflush( stdout );
+    if ( pLogFile )
+        fclose( pLogFile );
     return RetValue;
 }
 

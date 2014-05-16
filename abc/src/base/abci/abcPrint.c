@@ -27,6 +27,10 @@
 #include "map/if/if.h"
 #include "misc/extra/extraBdd.h"
 
+#ifdef WIN32
+#include <windows.h>
+#endif
+
 ABC_NAMESPACE_IMPL_START
 
 
@@ -67,6 +71,7 @@ int Abc_NtkCompareAndSaveBest( Abc_Ntk_t * pNtk )
         int    Depth;  // depth of the best saved network
         int    Flops;  // flops in the best saved network 
         int    Nodes;  // nodes in the best saved network
+        int    Edges;  // edges in the best saved network
         int    nPis;   // the number of primary inputs
         int    nPos;   // the number of primary outputs
     } ParsNew, ParsBest = { 0 };
@@ -84,6 +89,7 @@ int Abc_NtkCompareAndSaveBest( Abc_Ntk_t * pNtk )
     ParsNew.Depth = Abc_NtkLevel( pNtk );
     ParsNew.Flops = Abc_NtkLatchNum( pNtk );
     ParsNew.Nodes = Abc_NtkNodeNum( pNtk );
+    ParsNew.Edges = Abc_NtkGetTotalFanins( pNtk );
     ParsNew.nPis  = Abc_NtkPiNum( pNtk );
     ParsNew.nPos  = Abc_NtkPoNum( pNtk );
     // reset the parameters if the network has the same name
@@ -91,17 +97,21 @@ int Abc_NtkCompareAndSaveBest( Abc_Ntk_t * pNtk )
           strcmp(ParsBest.pName, pNtk->pName) ||
           ParsBest.Depth >  ParsNew.Depth ||
          (ParsBest.Depth == ParsNew.Depth && ParsBest.Flops >  ParsNew.Flops) ||
-         (ParsBest.Depth == ParsNew.Depth && ParsBest.Flops == ParsNew.Flops && ParsBest.Nodes >  ParsNew.Nodes) )
+         (ParsBest.Depth == ParsNew.Depth && ParsBest.Flops == ParsNew.Flops && ParsBest.Edges >  ParsNew.Edges) )
     {
         ABC_FREE( ParsBest.pName );
         ParsBest.pName = Extra_UtilStrsav( pNtk->pName );
         ParsBest.Depth = ParsNew.Depth;
         ParsBest.Flops = ParsNew.Flops;
         ParsBest.Nodes = ParsNew.Nodes;
+        ParsBest.Edges = ParsNew.Edges;
         ParsBest.nPis  = ParsNew.nPis;
         ParsBest.nPos  = ParsNew.nPos;
         // writ the network
-        pFileNameOut = Extra_FileNameGenericAppend( pNtk->pSpec, "_best.blif" );
+        if ( strcmp(pNtk->pSpec + strlen(pNtk->pSpec) - strlen("_best.blif"), "_best.blif") )
+            pFileNameOut = Extra_FileNameGenericAppend( pNtk->pSpec, "_best.blif" );
+        else
+            pFileNameOut = pNtk->pSpec;
         Io_Write( pNtk, pFileNameOut, IO_FILE_BLIF );
         return 1;
     }
@@ -223,11 +233,19 @@ void Abc_NtkPrintStats( Abc_Ntk_t * pNtk, int fFactored, int fSaveBest, int fDum
 //    if ( Abc_NtkIsStrash(pNtk) )
 //        Abc_AigCountNext( pNtk->pManFunc );
 
-    Abc_Print( 1,"%-13s:",       pNtk->pName );
+#ifdef WIN32
+    SetConsoleTextAttribute( GetStdHandle(STD_OUTPUT_HANDLE), 15 ); // bright
+    Abc_Print( 1,"%-13s:", pNtk->pName );
+    SetConsoleTextAttribute( GetStdHandle(STD_OUTPUT_HANDLE), 7 );  // normal
+#else
+    Abc_Print( 1,"%s%-13s:%s", "\033[1;37m", pNtk->pName, "\033[0m" );  // bright
+#endif
     Abc_Print( 1," i/o =%5d/%5d", Abc_NtkPiNum(pNtk), Abc_NtkPoNum(pNtk) );
     if ( Abc_NtkConstrNum(pNtk) )
         Abc_Print( 1,"(c=%d)", Abc_NtkConstrNum(pNtk) );
     Abc_Print( 1,"  lat =%5d", Abc_NtkLatchNum(pNtk) );
+    if ( pNtk->nBarBufs )
+        Abc_Print( 1,"(b=%d)", pNtk->nBarBufs );
     if ( Abc_NtkIsNetlist(pNtk) )
     {
         Abc_Print( 1,"  net =%5d", Abc_NtkNetNum(pNtk) );

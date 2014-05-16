@@ -115,6 +115,19 @@ int n_levels()
     return -1;
 }
 
+double n_area()
+{
+    Abc_Frame_t* pAbc = Abc_FrameGetGlobalFrame();
+    Abc_Ntk_t * pNtk = Abc_FrameReadNtk(pAbc);
+
+    if ( pNtk && Abc_NtkHasMapping(pNtk) )
+    {        
+        return Abc_NtkGetMappedArea(pNtk);
+    }
+
+    return -1;
+}
+
 int has_comb_model()
 {
     Abc_Frame_t* pAbc = Abc_FrameGetGlobalFrame();
@@ -358,6 +371,15 @@ void _pyabc_array_push(int i)
     Abc_Frame_t* pAbc = Abc_FrameGetGlobalFrame();
     Vec_Int_t *vObjIds = Abc_FrameReadObjIds(pAbc);
     Vec_IntPush( vObjIds, i );
+}
+
+int pyabc_array_read_entry(int i)
+{
+    Abc_Frame_t* pAbc = Abc_FrameGetGlobalFrame();
+    Vec_Int_t *vObjIds = Abc_FrameReadObjIds(pAbc);
+    if( !vObjIds )
+        return -1;
+    return Vec_IntEntry( vObjIds, i );
 }
 
 static PyObject* pyabc_internal_python_command_callback = 0;
@@ -660,6 +682,7 @@ int n_pis();
 int n_pos();
 int n_latches();
 int n_levels();
+double n_area();
 
 int run_command(char* cmd);
 
@@ -695,6 +718,7 @@ PyObject* eq_classes();
 
 void _pyabc_array_clear();
 void _pyabc_array_push(int i);
+int pyabc_array_read_entry(int i);
 
 void pyabc_internal_set_command_callback( PyObject* callback );
 void pyabc_internal_register_command( char * sGroup, char * sName, int fChanges );
