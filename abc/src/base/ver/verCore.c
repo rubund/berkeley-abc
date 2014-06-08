@@ -2717,7 +2717,7 @@ void Ver_ParsePrintLog( Ver_Man_t * pMan )
     FILE * pFile;
     char * pNameGeneric;
     char Buffer[1000];
-    int i, k;
+    int i, k, Count1 = 0;
 
     // open the log file
     pNameGeneric = Extra_FileNameGeneric( pMan->pFileName );
@@ -2742,7 +2742,7 @@ void Ver_ParsePrintLog( Ver_Man_t * pMan )
     fprintf( pFile, "The hierarhical design %s contains %d modules:\n", pMan->pFileName, Vec_PtrSize(pMan->pDesign->vModules) );
     Vec_PtrForEachEntry( Abc_Ntk_t *, pMan->pDesign->vModules, pNtk, i )
     {
-        fprintf( pFile, "%-24s : ", Abc_NtkName(pNtk) );
+        fprintf( pFile, "%-50s : ", Abc_NtkName(pNtk) );
         if ( !Ver_NtkIsDefined(pNtk) )
             fprintf( pFile, "undefbox" );
         else if ( Abc_NtkHasBlackbox(pNtk) )
@@ -2752,14 +2752,16 @@ void Ver_ParsePrintLog( Ver_Man_t * pMan )
         fprintf( pFile, " instantiated %6d times ", pNtk->fHieVisited );
 //        fprintf( pFile, "\n   " );
         fprintf( pFile, " pi = %4d", Abc_NtkPiNum(pNtk) );
-        fprintf( pFile, " po = %4d", Abc_NtkPiNum(pNtk) );
+        fprintf( pFile, " po = %4d", Abc_NtkPoNum(pNtk) );
         fprintf( pFile, " nd = %8d",  Abc_NtkNodeNum(pNtk) );
         fprintf( pFile, " lat = %6d",  Abc_NtkLatchNum(pNtk) );
         fprintf( pFile, " box = %6d", Abc_NtkBoxNum(pNtk)-Abc_NtkLatchNum(pNtk) );
         fprintf( pFile, "\n" );
+        Count1 += (Abc_NtkPoNum(pNtk) == 1);
     }
     Vec_PtrForEachEntry( Abc_Ntk_t *, pMan->pDesign->vModules, pNtk, i )
         pNtk->fHieVisited = 0;
+    fprintf( pFile, "The number of modules with one output = %d (%.2f %%).\n", Count1, 100.0 * Count1/Vec_PtrSize(pMan->pDesign->vModules) ); 
 
     // report instances with dangling outputs
     if ( Vec_PtrSize(pMan->pDesign->vModules) > 1 )
@@ -2845,7 +2847,7 @@ void Ver_ParsePrintLog( Ver_Man_t * pMan )
 ***********************************************************************/
 int Ver_ParseAttachBoxes( Ver_Man_t * pMan )
 {
-    int fPrintLog = 0;
+    int fPrintLog = 1;
     Abc_Ntk_t * pNtk = NULL;
     Ver_Bundle_t * pBundle;
     Vec_Ptr_t * vUndefs;

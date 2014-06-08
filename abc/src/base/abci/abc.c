@@ -124,6 +124,7 @@ static int Abc_CommandResubstitute           ( Abc_Frame_t * pAbc, int argc, cha
 static int Abc_CommandRr                     ( Abc_Frame_t * pAbc, int argc, char ** argv );
 static int Abc_CommandCascade                ( Abc_Frame_t * pAbc, int argc, char ** argv );
 static int Abc_CommandExtract                ( Abc_Frame_t * pAbc, int argc, char ** argv );
+static int Abc_CommandVarMin                 ( Abc_Frame_t * pAbc, int argc, char ** argv );
 
 static int Abc_CommandLogic                  ( Abc_Frame_t * pAbc, int argc, char ** argv );
 static int Abc_CommandComb                   ( Abc_Frame_t * pAbc, int argc, char ** argv );
@@ -294,6 +295,8 @@ static int Abc_CommandInduction              ( Abc_Frame_t * pAbc, int argc, cha
 static int Abc_CommandConstr                 ( Abc_Frame_t * pAbc, int argc, char ** argv );
 static int Abc_CommandUnfold                 ( Abc_Frame_t * pAbc, int argc, char ** argv );
 static int Abc_CommandFold                   ( Abc_Frame_t * pAbc, int argc, char ** argv );
+static int Abc_CommandUnfold2                 ( Abc_Frame_t * pAbc, int argc, char ** argv );
+static int Abc_CommandFold2                 ( Abc_Frame_t * pAbc, int argc, char ** argv );
 static int Abc_CommandBm                     ( Abc_Frame_t * pAbc, int argc, char ** argv );
 static int Abc_CommandBm2                    ( Abc_Frame_t * pAbc, int argc, char ** argv );
 static int Abc_CommandSaucy                  ( Abc_Frame_t * pAbc, int argc, char ** argv );
@@ -398,6 +401,7 @@ static int Abc_CommandAbc9Slice              ( Abc_Frame_t * pAbc, int argc, cha
 static int Abc_CommandAbc9PoPart             ( Abc_Frame_t * pAbc, int argc, char ** argv );
 static int Abc_CommandAbc9GroupProve         ( Abc_Frame_t * pAbc, int argc, char ** argv );
 static int Abc_CommandAbc9MultiProve         ( Abc_Frame_t * pAbc, int argc, char ** argv );
+static int Abc_CommandAbc9SplitProve         ( Abc_Frame_t * pAbc, int argc, char ** argv );
 static int Abc_CommandAbc9Bmc                ( Abc_Frame_t * pAbc, int argc, char ** argv );
 static int Abc_CommandAbc9BCore              ( Abc_Frame_t * pAbc, int argc, char ** argv );
 static int Abc_CommandAbc9ICheck             ( Abc_Frame_t * pAbc, int argc, char ** argv );
@@ -699,6 +703,7 @@ void Abc_Init( Abc_Frame_t * pAbc )
 //    Cmd_CommandAdd( pAbc, "Synthesis",    "rr",            Abc_CommandRr,               1 );
     Cmd_CommandAdd( pAbc, "Synthesis",    "cascade",       Abc_CommandCascade,          1 );
     Cmd_CommandAdd( pAbc, "Synthesis",    "extract",       Abc_CommandExtract,          1 );
+    Cmd_CommandAdd( pAbc, "Synthesis",    "varmin",        Abc_CommandVarMin,           0 );
 
     Cmd_CommandAdd( pAbc, "Various",      "logic",         Abc_CommandLogic,            1 );
     Cmd_CommandAdd( pAbc, "Various",      "comb",          Abc_CommandComb,             1 );
@@ -868,6 +873,8 @@ void Abc_Init( Abc_Frame_t * pAbc )
     Cmd_CommandAdd( pAbc, "Verification", "constr",        Abc_CommandConstr,           0 );
     Cmd_CommandAdd( pAbc, "Verification", "unfold",        Abc_CommandUnfold,           1 );
     Cmd_CommandAdd( pAbc, "Verification", "fold",          Abc_CommandFold,             1 );
+    Cmd_CommandAdd( pAbc, "Verification", "unfold2",        Abc_CommandUnfold2,           1 );    // jlong 
+    Cmd_CommandAdd( pAbc, "Verification", "fold2",        Abc_CommandFold2,           1 );    // jlong 
     Cmd_CommandAdd( pAbc, "Verification", "bm",            Abc_CommandBm,               1 );
     Cmd_CommandAdd( pAbc, "Verification", "bm2",           Abc_CommandBm2,              1 );
     Cmd_CommandAdd( pAbc, "Verification", "saucy3",        Abc_CommandSaucy,            1 );
@@ -969,6 +976,7 @@ void Abc_Init( Abc_Frame_t * pAbc )
     Cmd_CommandAdd( pAbc, "ABC9",         "&popart",       Abc_CommandAbc9PoPart,       0 );
     Cmd_CommandAdd( pAbc, "ABC9",         "&gprove",       Abc_CommandAbc9GroupProve,   0 );
     Cmd_CommandAdd( pAbc, "ABC9",         "&mprove",       Abc_CommandAbc9MultiProve,   0 );
+    Cmd_CommandAdd( pAbc, "ABC9",         "&splitprove",   Abc_CommandAbc9SplitProve,   0 );
     Cmd_CommandAdd( pAbc, "ABC9",         "&bmc",          Abc_CommandAbc9Bmc,          0 );
     Cmd_CommandAdd( pAbc, "ABC9",         "&bcore",        Abc_CommandAbc9BCore,        0 );
     Cmd_CommandAdd( pAbc, "ABC9",         "&icheck",       Abc_CommandAbc9ICheck,       0 );
@@ -1399,17 +1407,17 @@ int Abc_CommandPrintFanio( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
     Abc_Ntk_t * pNtk = Abc_FrameReadNtk(pAbc);
     int c;
-    int fMffc;
-    int fVerbose;
-
-    // set defaults
-    fMffc    = 0;
-    fVerbose = 0;
+    int fUsePis   = 0;
+    int fMffc     = 0;
+    int fVerbose  = 0;
     Extra_UtilGetoptReset();
-    while ( ( c = Extra_UtilGetopt( argc, argv, "mvh" ) ) != EOF )
+    while ( ( c = Extra_UtilGetopt( argc, argv, "imvh" ) ) != EOF )
     {
         switch ( c )
         {
+        case 'i':
+            fUsePis ^= 1;
+            break;
         case 'm':
             fMffc ^= 1;
             break;
@@ -1422,23 +1430,22 @@ int Abc_CommandPrintFanio( Abc_Frame_t * pAbc, int argc, char ** argv )
             goto usage;
         }
     }
-
     if ( pNtk == NULL )
     {
         Abc_Print( -1, "Empty network.\n" );
         return 1;
     }
-
     // print the nodes
     if ( fVerbose )
-        Abc_NtkPrintFanio( stdout, pNtk );
+        Abc_NtkPrintFanio( stdout, pNtk, fUsePis );
     else
         Abc_NtkPrintFanioNew( stdout, pNtk, fMffc );
     return 0;
 
 usage:
-    Abc_Print( -2, "usage: print_fanio [-mvh]\n" );
+    Abc_Print( -2, "usage: print_fanio [-imvh]\n" );
     Abc_Print( -2, "\t        prints the statistics about fanins/fanouts of all nodes\n" );
+    Abc_Print( -2, "\t-i    : toggles considering fanouts of primary inputs only [default = %s]\n", fUsePis? "yes": "no" );
     Abc_Print( -2, "\t-m    : toggles printing MFFC sizes instead of fanouts [default = %s]\n", fMffc? "yes": "no" );
     Abc_Print( -2, "\t-v    : toggles verbose way of printing the stats [default = %s]\n", fVerbose? "yes": "no" );
     Abc_Print( -2, "\t-h    : print the command usage\n");
@@ -4655,7 +4662,7 @@ int Abc_CommandMfs2( Abc_Frame_t * pAbc, int argc, char ** argv )
             }
             pPars->nGrowthLevel = atoi(argv[globalUtilOptind]);
             globalUtilOptind++;
-            if ( pPars->nGrowthLevel < 0 || pPars->nGrowthLevel > ABC_INFINITY )
+            if ( pPars->nGrowthLevel < -ABC_INFINITY || pPars->nGrowthLevel > ABC_INFINITY )
                 goto usage;
             break;
         case 'C':
@@ -6309,6 +6316,90 @@ usage:
     Abc_Print( -2, "\t           extracts shared logic from multi-input gates\n" );
     Abc_Print( -2, "\t-K <num> : the minimum gate size to consider for extraction [default = %d]\n", nMultiSize );
     Abc_Print( -2, "\t-a       : toggle multi-input XOR vs multi-input AND [default = %s]\n", fAnd? "AND": "XOR" );
+    Abc_Print( -2, "\t-v       : toggle verbose printout [default = %s]\n", fVerbose? "yes": "no" );
+    Abc_Print( -2, "\t-h       : print the command usage\n");
+    return 1;
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Abc_CommandVarMin( Abc_Frame_t * pAbc, int argc, char ** argv )
+{
+    extern void Abc_SuppTest( int nOnes, int nVars, int fUseSimple, int fCheck, int fVerbose );
+    extern void Abc_SuppReadMinTest( char * pFileName );
+    int nOnes      =  4;
+    int nVars      = 20;
+    int fUseSimple =  0;
+    int fCheck     =  0;
+    int fVerbose   =  0;
+    int c;
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "MNocvh" ) ) != EOF )
+    {
+        switch ( c )
+        {
+        case 'M':
+            if ( globalUtilOptind >= argc )
+            {
+                Abc_Print( -1, "Command line switch \"-M\" should be followed by an integer.\n" );
+                goto usage;
+            }
+            nOnes = atoi(argv[globalUtilOptind]);
+            globalUtilOptind++;
+            if ( nOnes < 0 )
+                goto usage;
+            break;
+        case 'N':
+            if ( globalUtilOptind >= argc )
+            {
+                Abc_Print( -1, "Command line switch \"-N\" should be followed by an integer.\n" );
+                goto usage;
+            }
+            nVars = atoi(argv[globalUtilOptind]);
+            globalUtilOptind++;
+            if ( nVars < 0 )
+                goto usage;
+            break;
+        case 'o':
+            fUseSimple ^= 1;
+            break;
+        case 'c':
+            fCheck ^= 1;
+            break;
+        case 'v':
+            fVerbose ^= 1;
+            break;
+        case 'h':
+            goto usage;
+        default:
+            goto usage;
+        }
+    }
+    // get the file name
+    if ( argc == globalUtilOptind + 1 )
+    {
+        Abc_SuppReadMinTest( argv[globalUtilOptind] );
+        return 0;
+    }
+    Abc_SuppTest( nOnes, nVars, fUseSimple, fCheck, fVerbose );
+    return 0;
+
+usage:
+    Abc_Print( -2, "usage: varmin [-MN <num>] [-ocvh]\n" );
+    Abc_Print( -2, "\t           performs support minimization\n" );
+    Abc_Print( -2, "\t-M <num> : the number of ones in the combination [default = %d]\n", nOnes );
+    Abc_Print( -2, "\t-N <num> : the number of variables in the problem [default = %d]\n", nVars );
+    Abc_Print( -2, "\t-o       : toggle computing reduced difference matrix [default = %s]\n", fUseSimple? "yes": "no" );
+    Abc_Print( -2, "\t-c       : toggle verifying the final result [default = %s]\n", fCheck? "yes": "no" );
     Abc_Print( -2, "\t-v       : toggle verbose printout [default = %s]\n", fVerbose? "yes": "no" );
     Abc_Print( -2, "\t-h       : print the command usage\n");
     return 1;
@@ -10317,18 +10408,19 @@ int Abc_CommandTestColor( Abc_Frame_t * pAbc, int argc, char ** argv )
 ***********************************************************************/
 int Abc_CommandTest( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
-    Abc_Ntk_t * pNtk = Abc_FrameReadNtk(pAbc);
+//    Abc_Ntk_t * pNtk = Abc_FrameReadNtk(pAbc);
     int nCutMax      =  1;
-    int nLeafMax     = 10;
+    int nLeafMax     =  4;
     int nDivMax      =  2;
-    int nDecMax      =  3;
+    int nDecMax      = 20;
+    int nNumOnes     =  4;
     int fNewAlgo     =  0;
     int fNewOrder    =  0;
     int fVerbose     =  0;
     int fVeryVerbose =  0;
     int c;
     Extra_UtilGetoptReset();
-    while ( ( c = Extra_UtilGetopt( argc, argv, "CKDNaovwh" ) ) != EOF )
+    while ( ( c = Extra_UtilGetopt( argc, argv, "CKDNMaovwh" ) ) != EOF )
     {
         switch ( c )
         {
@@ -10374,6 +10466,17 @@ int Abc_CommandTest( Abc_Frame_t * pAbc, int argc, char ** argv )
             nDecMax = atoi(argv[globalUtilOptind]);
             globalUtilOptind++;
             if ( nDecMax < 0 )
+                goto usage;
+            break;
+        case 'M':
+            if ( globalUtilOptind >= argc )
+            {
+                Abc_Print( -1, "Command line switch \"-M\" should be followed by an integer.\n" );
+                goto usage;
+            }
+            nNumOnes = atoi(argv[globalUtilOptind]);
+            globalUtilOptind++;
+            if ( nNumOnes < 0 )
                 goto usage;
             break;
         case 'a':
@@ -10461,9 +10564,21 @@ int Abc_CommandTest( Abc_Frame_t * pAbc, int argc, char ** argv )
     }
 */
     {
-        extern void Abc_EnumerateFuncs( int nDecMax, int nDivMax, int fVerbose );
-        Abc_EnumerateFuncs( nDecMax, nDivMax, fVerbose );
+//        extern void Abc_EnumerateFuncs( int nDecMax, int nDivMax, int fVerbose );
+//        Abc_EnumerateFuncs( nDecMax, nDivMax, fVerbose );
     }
+
+    if ( fNewAlgo )
+    {
+        extern void Abc_SuppTest( int nOnes, int nVars, int fUseSimple, int fCheck, int fVerbose );
+        Abc_SuppTest( nNumOnes, nDecMax, fNewOrder, 0, fVerbose );
+    }
+    else
+    {
+        extern void Bmc_EcoMiterTest();
+        Bmc_EcoMiterTest();
+    }
+/*
     if ( pNtk )
     {
         extern Abc_Ntk_t * Abc_NtkBarBufsOnOffTest( Abc_Ntk_t * pNtk );
@@ -10475,14 +10590,16 @@ int Abc_CommandTest( Abc_Frame_t * pAbc, int argc, char ** argv )
         }
         Abc_FrameReplaceCurrentNetwork( pAbc, pNtkRes );
     }
+*/
     return 0;
 usage:
-    Abc_Print( -2, "usage: test [-CKDN] [-aovwh] <file_name>\n" );
+    Abc_Print( -2, "usage: test [-CKDNM] [-aovwh] <file_name>\n" );
     Abc_Print( -2, "\t         testbench for new procedures\n" );
     Abc_Print( -2, "\t-C num : the max number of cuts [default = %d]\n", nCutMax );
     Abc_Print( -2, "\t-K num : the max number of leaves [default = %d]\n", nLeafMax );
     Abc_Print( -2, "\t-D num : the max number of divisors [default = %d]\n", nDivMax );
     Abc_Print( -2, "\t-N num : the max number of node inputs [default = %d]\n", nDecMax );
+    Abc_Print( -2, "\t-M num : the max number of ones in the vector [default = %d]\n", nNumOnes );
     Abc_Print( -2, "\t-a     : toggle using new algorithm [default = %s]\n", fNewAlgo? "yes": "no" );
     Abc_Print( -2, "\t-o     : toggle using new ordering [default = %s]\n", fNewOrder? "yes": "no" );
     Abc_Print( -2, "\t-v     : toggle printing verbose information [default = %s]\n", fVerbose? "yes": "no" );
@@ -18752,6 +18869,18 @@ int Abc_CommandDarPhase( Abc_Frame_t * pAbc, int argc, char ** argv )
             return 1;
         }
         pCexNew = Abc_CexTransformPhase( pAbc->pCex, Abc_NtkPiNum(pNtk), Abc_NtkPoNum(pNtk), Abc_NtkLatchNum(pNtk) );
+        {
+            Aig_Man_t * pAig = Abc_NtkToDar( pNtk, 0, 1 );
+            Gia_Man_t * pGia = Gia_ManFromAig( pAig );
+            int iPo = Gia_ManSetFailedPoCex( pGia, pCexNew );
+            Gia_ManStop( pGia );
+            Aig_ManStop( pAig );
+            if ( iPo == -1 )
+            {
+                Abc_Print( -1, "The counter-example does not fail any of the outputs of the original AIG.\n" );
+                return 1;
+            }
+        }
         Abc_FrameReplaceCex( pAbc, &pCexNew );
         return 0;
     }
@@ -19457,7 +19586,7 @@ int Abc_CommandCubeEnum( Abc_Frame_t * pAbc, int argc, char ** argv )
 
 usage:
     Abc_Print( -2, "usage: cubeenum [-vh]\n" );
-    Abc_Print( -2, "\t         enumerates reachable states of 2x2x2x cube\n" );
+    Abc_Print( -2, "\t         enumerates reachable states of 2x2x2 cube\n" );
     Abc_Print( -2, "\t         (http://en.wikipedia.org/wiki/Pocket_Cube)\n" );
     Abc_Print( -2, "\t-z     : toggle using ZDD-based algorithm [default = %s]\n", fZddAlgo? "yes": "no" );
     Abc_Print( -2, "\t-v     : toggle verbose output [default = %s]\n", fVerbose? "yes": "no" );
@@ -23704,7 +23833,7 @@ usage:
     Abc_Print( -2, "\t-s     : toggle creating only shortest counter-examples [default = %s]\n",             pPars->fShortest? "yes": "no" );
     Abc_Print( -2, "\t-i     : toggle clause pushing from an intermediate timeframe [default = %s]\n",       pPars->fShiftStart? "yes": "no" );
     Abc_Print( -2, "\t-p     : toggle reusing proof-obligations in the last timeframe [default = %s]\n",     pPars->fReuseProofOblig? "yes": "no" );
-    Abc_Print( -2, "\t-d     : toggle dumping inductive invariant [default = %s]\n",                         pPars->fDumpInv? "yes": "no" );
+    Abc_Print( -2, "\t-d     : toggle dumping invariant (valid if init state is all-0) [default = %s]\n",    pPars->fDumpInv? "yes": "no" );
     Abc_Print( -2, "\t-g     : toggle skipping expensive generalization step [default = %s]\n",              pPars->fSkipGeneral? "yes": "no" );
     Abc_Print( -2, "\t-v     : toggle printing optimization summary [default = %s]\n",                       pPars->fVerbose? "yes": "no" );
     Abc_Print( -2, "\t-w     : toggle printing detailed stats default = %s]\n",                              pPars->fVeryVerbose? "yes": "no" );
@@ -25484,15 +25613,18 @@ usage:
 int Abc_CommandAbc9Hash( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
     Gia_Man_t * pTemp;
-    int c;
+    int c, fCollapse = 0;
     int fAddStrash = 0;
     Extra_UtilGetoptReset();
-    while ( ( c = Extra_UtilGetopt( argc, argv, "ah" ) ) != EOF )
+    while ( ( c = Extra_UtilGetopt( argc, argv, "ach" ) ) != EOF )
     {
         switch ( c )
         {
         case 'a':
             fAddStrash ^= 1;
+            break;
+        case 'c':
+            fCollapse ^= 1;
             break;
         case 'h':
             goto usage;
@@ -25505,14 +25637,24 @@ int Abc_CommandAbc9Hash( Abc_Frame_t * pAbc, int argc, char ** argv )
         Abc_Print( -1, "Abc_CommandAbc9Hash(): There is no AIG.\n" );
         return 1;
     }
-    pTemp = Gia_ManRehash( pAbc->pGia, fAddStrash );
+    if ( fCollapse && pAbc->pGia->pAigExtra )
+    {
+        Gia_Man_t * pNew = Gia_ManDupUnnormalize( pAbc->pGia );
+        pNew->pManTime = pAbc->pGia->pManTime;
+        pTemp = Gia_ManDupCollapse( pNew, pAbc->pGia->pAigExtra, NULL );
+        pNew->pManTime = NULL;
+        Gia_ManStop( pNew );
+    }
+    else
+        pTemp = Gia_ManRehash( pAbc->pGia, fAddStrash );
     Abc_FrameUpdateGia( pAbc, pTemp );
     return 0;
 
 usage:
-    Abc_Print( -2, "usage: &st [-ah]\n" );
+    Abc_Print( -2, "usage: &st [-ach]\n" );
     Abc_Print( -2, "\t        performs structural hashing\n" );
     Abc_Print( -2, "\t-a    : toggle additional hashing [default = %s]\n", fAddStrash? "yes": "no" );
+    Abc_Print( -2, "\t-c    : toggle collapsing hierarchical AIG [default = %s]\n", fCollapse? "yes": "no" );
     Abc_Print( -2, "\t-h    : print the command usage\n");
     return 1;
 }
@@ -32585,6 +32727,11 @@ int Abc_CommandAbc9GroupProve( Abc_Frame_t * pAbc, int argc, char ** argv )
         Abc_Print( -1, "Abc_CommandAbc9GroupProve(): There is no AIG.\n" );
         return 1;
     }
+    if ( pCommLine == NULL )
+    {
+        Abc_Print( -1, "Abc_CommandAbc9GroupProve(): Command line is not given.\n" );
+        return 1;
+    }
     vStatus = Gia_ManGroupProve( pAbc->pGia, pCommLine, nGroupSize, fVerbose );
     Vec_IntFree( vStatus );
     return 0;
@@ -32702,7 +32849,12 @@ int Abc_CommandAbc9MultiProve( Abc_Frame_t * pAbc, int argc, char ** argv )
     }
     if ( pAbc->pGia == NULL )
     {
-        Abc_Print( -1, "Abc_CommandAbc9PoPart(): There is no AIG.\n" );
+        Abc_Print( -1, "Abc_CommandAbc9MultiProve(): There is no AIG.\n" );
+        return 1;
+    }
+    if ( Gia_ManRegNum(pAbc->pGia) == 0 )
+    {
+        Abc_Print( -1, "Abc_CommandAbc9MultiProve(): The problem is combinational.\n" );
         return 1;
     }
     pAbc->Status = Gia_ManMultiProve( pAbc->pGia, pPars );
@@ -32723,6 +32875,112 @@ usage:
     Abc_Print( -2, "\t-d     : toggle dumping invariant into a file [default = %s]\n",            pPars->fDumpFinal?   "yes": "no" );
     Abc_Print( -2, "\t-v     : toggle printing verbose information [default = %s]\n",             pPars->fVerbose?     "yes": "no" );
     Abc_Print( -2, "\t-w     : toggle printing additional verbose information [default = %s]\n",  pPars->fVeryVerbose? "yes": "no" );
+    Abc_Print( -2, "\t-h     : print the command usage\n");
+    return 1;
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Abc_CommandAbc9SplitProve( Abc_Frame_t * pAbc, int argc, char ** argv )
+{
+    extern int Cec_GiaSplitTest( Gia_Man_t * p, int nProcs, int nTimeOut, int nIterMax, int LookAhead, int fVerbose, int fVeryVerbose );
+    int c, nProcs = 1, nTimeOut = 10, nIterMax = 0, LookAhead = 1, fVerbose = 0, fVeryVerbose = 0;
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "PTILvwh" ) ) != EOF )
+    {
+        switch ( c )
+        {
+        case 'P':
+            if ( globalUtilOptind >= argc )
+            {
+                Abc_Print( -1, "Command line switch \"-P\" should be followed by a positive integer.\n" );
+                goto usage;
+            }
+            nProcs = atoi(argv[globalUtilOptind]);
+            globalUtilOptind++;
+            if ( nProcs <= 0 )
+                goto usage;
+            break;
+        case 'T':
+            if ( globalUtilOptind >= argc )
+            {
+                Abc_Print( -1, "Command line switch \"-T\" should be followed by a positive integer.\n" );
+                goto usage;
+            }
+            nTimeOut = atoi(argv[globalUtilOptind]);
+            globalUtilOptind++;
+            if ( nTimeOut <= 0 )
+                goto usage;
+            break;
+        case 'I':
+            if ( globalUtilOptind >= argc )
+            {
+                Abc_Print( -1, "Command line switch \"-I\" should be followed by an integer.\n" );
+                goto usage;
+            }
+            nIterMax = atoi(argv[globalUtilOptind]);
+            globalUtilOptind++;
+            if ( nIterMax < 0 )
+                goto usage;
+            break;
+        case 'L':
+            if ( globalUtilOptind >= argc )
+            {
+                Abc_Print( -1, "Command line switch \"-L\" should be followed by an integer.\n" );
+                goto usage;
+            }
+            LookAhead = atoi(argv[globalUtilOptind]);
+            globalUtilOptind++;
+            if ( LookAhead <= 0 || LookAhead > 100 )
+            {
+                Abc_Print( -1, "Look-ahead value (\"-L <num>\") should be between 1 and 100.\n", LookAhead );
+                goto usage;
+            }
+            break;
+        case 'v':
+            fVerbose ^= 1;
+            break;
+        case 'w':
+            fVeryVerbose ^= 1;
+            break;
+        case 'h':
+            goto usage;
+        default:
+            goto usage;
+        }
+    }
+    if ( pAbc->pGia == NULL )
+    {
+        Abc_Print( -1, "Abc_CommandAbc9SplitProve(): There is no AIG.\n" );
+        return 1;
+    }
+    if ( Gia_ManRegNum(pAbc->pGia) > 0 )
+    {
+        Abc_Print( -1, "Abc_CommandAbc9SplitProve(): The problem is sequential.\n" );
+        return 1;
+    }
+    pAbc->Status = Cec_GiaSplitTest( pAbc->pGia, nProcs, nTimeOut, nIterMax, LookAhead, fVerbose, fVeryVerbose );
+    pAbc->pCex = pAbc->pGia->pCexComb;  pAbc->pGia->pCexComb = NULL;
+    return 0;
+
+usage:
+    Abc_Print( -2, "usage: &splitprove [-PTIL num] [-vwh]\n" );
+    Abc_Print( -2, "\t         proves CEC problem by case-splitting\n" );
+    Abc_Print( -2, "\t-P num : the number of concurrent processes [default = %d]\n",          nProcs );
+    Abc_Print( -2, "\t-T num : runtime limit in seconds per subproblem [default = %d]\n",     nTimeOut );
+    Abc_Print( -2, "\t-I num : the max number of iterations (0 = infinity) [default = %d]\n", nIterMax );
+    Abc_Print( -2, "\t-L num : maximum look-ahead during cofactoring [default = %d]\n",       LookAhead );
+    Abc_Print( -2, "\t-v     : toggle printing verbose information [default = %s]\n",         fVerbose? "yes": "no" );
+    Abc_Print( -2, "\t-w     : toggle printing more verbose information [default = %s]\n",    fVeryVerbose? "yes": "no" );
     Abc_Print( -2, "\t-h     : print the command usage\n");
     return 1;
 }
@@ -33144,11 +33402,15 @@ usage:
 ***********************************************************************/
 int Abc_CommandAbc9FFTest( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
-    extern void Gia_ManFaultTest( Gia_Man_t * p, char * pFileName, int Algo, int fComplVars, int fStartPats, int nTimeOut, int fBasic, int fDump, int fDumpUntest, int fVerbose );
-    int c, Algo = 0, fComplVars = 0, fStartPats = 0, nTimeOut = 0, fBasic = 0, fDump = 0, fDumpUntest = 0, fVerbose = 0;
+    extern void Gia_ParFfSetDefault( Bmc_ParFf_t * p );
+    extern void Gia_ManFaultTest( Gia_Man_t * p, Gia_Man_t * pG, Bmc_ParFf_t * pPars );
+    Bmc_ParFf_t Pars, * pPars = &Pars;
     char * pFileName = NULL;
+    Gia_Man_t * pGold = NULL;
+    int c;
+    Gia_ParFfSetDefault( pPars );
     Extra_UtilGetoptReset();
-    while ( ( c = Extra_UtilGetopt( argc, argv, "ATcsbduvh" ) ) != EOF )
+    while ( ( c = Extra_UtilGetopt( argc, argv, "ATSGsbduvh" ) ) != EOF )
     {
         switch ( c )
         {
@@ -33158,9 +33420,9 @@ int Abc_CommandAbc9FFTest( Abc_Frame_t * pAbc, int argc, char ** argv )
                 Abc_Print( -1, "Command line switch \"-A\" should be followed by an integer.\n" );
                 goto usage;
             }
-            Algo = atoi(argv[globalUtilOptind]);
+            pPars->Algo = atoi(argv[globalUtilOptind]);
             globalUtilOptind++;
-            if ( Algo < 1 || Algo > 4 )
+            if ( pPars->Algo < 0 || pPars->Algo > 4 )
                 goto usage;
             break;
         case 'T':
@@ -33169,28 +33431,43 @@ int Abc_CommandAbc9FFTest( Abc_Frame_t * pAbc, int argc, char ** argv )
                 Abc_Print( -1, "Command line switch \"-T\" should be followed by an integer.\n" );
                 goto usage;
             }
-            nTimeOut = atoi(argv[globalUtilOptind]);
+            pPars->nTimeOut = atoi(argv[globalUtilOptind]);
             globalUtilOptind++;
-            if ( nTimeOut < 0 )
+            if ( pPars->nTimeOut < 0 )
                 goto usage;
             break;
-        case 'c':
-            fComplVars ^= 1;
+        case 'S':
+            if ( globalUtilOptind >= argc )
+            {
+                Abc_Print( -1, "Command line switch \"-S\" should be followed by string.\n" );
+                goto usage;
+            }
+            pPars->pFormStr = argv[globalUtilOptind];
+            globalUtilOptind++;
+            break;
+        case 'G':
+            if ( globalUtilOptind >= argc )
+            {
+                Abc_Print( -1, "Command line switch \"-G\" should be followed by string.\n" );
+                goto usage;
+            }
+            pFileName = argv[globalUtilOptind];
+            globalUtilOptind++;
             break;
         case 's':
-            fStartPats ^= 1;
+            pPars->fStartPats ^= 1;
             break;
         case 'b':
-            fBasic ^= 1;
+            pPars->fBasic ^= 1;
             break;
         case 'd':
-            fDump ^= 1;
+            pPars->fDump ^= 1;
             break;
         case 'u':
-            fDumpUntest ^= 1;
+            pPars->fDumpUntest ^= 1;
             break;
         case 'v':
-            fVerbose ^= 1;
+            pPars->fVerbose ^= 1;
             break;
         case 'h':
             goto usage;
@@ -33198,15 +33475,25 @@ int Abc_CommandAbc9FFTest( Abc_Frame_t * pAbc, int argc, char ** argv )
             goto usage;
         }
     }
+    if ( pPars->Algo == 0 && pPars->pFormStr == NULL )
+    {
+        Abc_Print( -1, "Formula string (-S <str>) should be selected when algorithm is 0 (-A 0).\n" );
+        return 0;
+    }
+    if ( pPars->Algo != 0 && pPars->pFormStr != NULL )
+    {
+        Abc_Print( -1, "Algorithm should be 0 (-A 0) when formula string is selected (-S <str>).\n" );
+        return 0;
+    }
     // get the file name
     if ( argc == globalUtilOptind + 1 )
     {
         FILE * pFile;
-        pFileName = argv[globalUtilOptind];
-        pFile = fopen( pFileName, "r" );
+        pPars->pFileName = argv[globalUtilOptind];
+        pFile = fopen( pPars->pFileName, "r" );
         if ( pFile == NULL )
         {
-            Abc_Print( -1, "Cannot open file \"%s\" with the input test patterns.\n", pFileName );
+            Abc_Print( -1, "Cannot open file \"%s\" with the input test patterns.\n", pPars->pFileName );
             return 0;
         }
         fclose( pFile );
@@ -33217,32 +33504,79 @@ int Abc_CommandAbc9FFTest( Abc_Frame_t * pAbc, int argc, char ** argv )
         Abc_Print( -1, "Abc_CommandAbc9FFTest(): There is no AIG.\n" );
         return 0;
     }
-    if ( Gia_ManRegNum(pAbc->pGia) == 0 && Algo == 1 )
+    if ( Gia_ManRegNum(pAbc->pGia) == 0 && pPars->Algo == 1 )
     {
         Abc_Print( -1, "Abc_CommandAbc9FFTest(): For delay testing, AIG should be sequential.\n" );
         return 0;
     }
-    Gia_ManFaultTest( pAbc->pGia, pFileName, Algo, fComplVars, fStartPats, nTimeOut, fBasic, fDump, fDumpUntest, fVerbose );
+    // check if the file is valid
+    if ( pFileName )
+    {
+        FILE * pFile = fopen( pFileName, "r" );
+        if ( pFile == NULL )
+        {
+            Abc_Print( -1, "Abc_CommandAbc9FFTest(): File name \"%s\" with golden model is invalid.\n", pFileName );
+            return 0;
+        }
+        fclose( pFile );
+        pGold = Gia_AigerRead( pFileName, 0, 0 );
+        if ( pGold == NULL )
+        {
+            Abc_Print( -1, "Abc_CommandAbc9FFTest(): Cannot read file \"%s\" with golden model.\n", pFileName );
+            return 0;
+        }
+        if ( Gia_ManPiNum(pAbc->pGia) != Gia_ManPiNum(pGold) )
+        {
+            Gia_ManStop( pGold );
+            Abc_Print( -1, "Abc_CommandAbc9FFTest(): Old model and gold model have different number of PIs.\n" );
+            return 0;
+        }
+        if ( Gia_ManPoNum(pAbc->pGia) != Gia_ManPoNum(pGold) )
+        {
+            Gia_ManStop( pGold );
+            Abc_Print( -1, "Abc_CommandAbc9FFTest(): Old model and gold model have different number of POs.\n" );
+            return 0;
+        }
+        printf( "Entered spec AIG from file \"%s\".\n", pFileName );
+    }
+    Gia_ManFaultTest( pAbc->pGia, pGold ? pGold : pAbc->pGia, pPars );
+    Gia_ManStopP( &pGold );
     return 0;
 
 usage:
-    Abc_Print( -2, "usage: &fftest [-AT num] [-csbduvh] <file>\n" );
-    Abc_Print( -2, "\t         performs functional fault test generation\n" );
-    Abc_Print( -2, "\t-A num : selects test generation algorithm [default = %d]\n", Algo );
-    Abc_Print( -2, "\t               0: algorithm is not selected\n" );
-    Abc_Print( -2, "\t               1: delay fault testing for sequential circuits\n" );
-    Abc_Print( -2, "\t               2: traditional stuck-at testing\n" );
-    Abc_Print( -2, "\t               3: complement fault testing\n" );
-    Abc_Print( -2, "\t               4: functionally observable fault testing\n" );
-    Abc_Print( -2, "\t-T num : specifies approximate runtime limit in seconds [default = %d]\n",        nTimeOut );
-    Abc_Print( -2, "\t-c     : toggles complementing control variables [default = %s]\n",               fComplVars?  "active-high": "active-low" );
-    Abc_Print( -2, "\t-s     : toggles starting with the all-0 and all-1 patterns [default = %s]\n",    fStartPats?  "yes": "no" );
-    Abc_Print( -2, "\t-b     : toggles testing for single faults only [default = %s]\n",                fBasic?      "yes": "no" );
-    Abc_Print( -2, "\t-d     : toggles dumping test patterns into file \"tests.txt\" [default = %s]\n", fDump?       "yes": "no" );
-    Abc_Print( -2, "\t-u     : toggles dumping untestable faults into \"untest.txt\" [default = %s]\n", fDumpUntest? "yes": "no" );
-    Abc_Print( -2, "\t-v     : toggles printing verbose information [default = %s]\n",                  fVerbose?    "yes": "no" );
-    Abc_Print( -2, "\t-h     : print the command usage\n");
-    Abc_Print( -2, "\t<file> : (optional) file name with input test patterns\n");
+    Abc_Print( -2, "usage: &fftest [-AT num] [-sbduvh] <file> [-G file] [-S str]\n" );
+    Abc_Print( -2, "\t          performs functional fault test generation\n" );
+    Abc_Print( -2, "\t-A num  : selects fault model for all gates [default = %d]\n", pPars->Algo );
+    Abc_Print( -2, "\t                0: fault model is not selected (use -S str)\n" );
+    Abc_Print( -2, "\t                1: delay fault testing for sequential circuits\n" );
+    Abc_Print( -2, "\t                2: traditional stuck-at fault: -S (((a&b)&~p)|q)\n" );
+    Abc_Print( -2, "\t                3: complement fault: -S ((a&b)^p)\n" );
+    Abc_Print( -2, "\t                4: functionally observable fault\n" );
+    Abc_Print( -2, "\t-T num  : specifies approximate runtime limit in seconds [default = %d]\n",        pPars->nTimeOut );
+    Abc_Print( -2, "\t-s      : toggles starting with the all-0 and all-1 patterns [default = %s]\n",    pPars->fStartPats?  "yes": "no" );
+    Abc_Print( -2, "\t-b      : toggles testing for single faults only [default = %s]\n",                pPars->fBasic?      "yes": "no" );
+    Abc_Print( -2, "\t-d      : toggles dumping test patterns into file \"tests.txt\" [default = %s]\n", pPars->fDump?       "yes": "no" );
+    Abc_Print( -2, "\t-u      : toggles dumping untestable faults into \"untest.txt\" [default = %s]\n", pPars->fDumpUntest? "yes": "no" );
+    Abc_Print( -2, "\t-v      : toggles printing verbose information [default = %s]\n",                  pPars->fVerbose?    "yes": "no" );
+    Abc_Print( -2, "\t-h      : print the command usage\n");
+    Abc_Print( -2, "\t<file>  : (optional) file name with input test patterns\n\n");
+    Abc_Print( -2, "\t-G file : (optional) file name with the golden model\n\n");
+    Abc_Print( -2, "\t-S str  : (optional) string representing the fault model\n");
+    Abc_Print( -2, "\t          The following notations are used:\n");
+    Abc_Print( -2, "\t            Functional variables: {a,b} (both a and b are always present)\n");
+    Abc_Print( -2, "\t            Parameter variables: {p,q,r,s,t,u,v,w} (any number from 1 to 8)\n");
+    Abc_Print( -2, "\t            Boolean operators: AND(&), OR(|), XOR(^), MUX(?:), NOT(~)\n");
+    Abc_Print( -2, "\t            Parantheses should be used around each operator. Spaces not allowed.\n");
+    Abc_Print( -2, "\t            Complement (~) is only allowed before variables (use DeMorgan law).\n");
+    Abc_Print( -2, "\t            Examples:\n");
+    Abc_Print( -2, "\t              (((a&b)&~p)|q)        stuck-at-0/1 at the output\n");
+    Abc_Print( -2, "\t              (((a&~p)|q)&b)        stuck-at-0/1 at input a\n");
+    Abc_Print( -2, "\t              (((a|p)&(b|q))&~r)    stuck-at-1 at the inputs and stuck-at-0 at the output\n");
+    Abc_Print( -2, "\t              (((a&~p)&(b&~q))|r)   stuck-at-0 at the inputs and stuck-at-1 at the output\n");
+    Abc_Print( -2, "\t              ((a&b)^p)             complement at the output\n");
+    Abc_Print( -2, "\t              (((a^p)&(b^q))^r)     complement at the inputs and at the output\n");
+    Abc_Print( -2, "\t              (a?(b?~s:r):(b?q:p))  functionally observable fault at the output\n");
+    Abc_Print( -2, "\t              (p?(a|b):(a&b))       replace AND by OR\n");    
     return 1;
 }
 
@@ -34909,7 +35243,8 @@ int Abc_CommandAbc9Test( Abc_Frame_t * pAbc, int argc, char ** argv )
 //    extern void Agi_ManTest( Gia_Man_t * pGia );
 //    extern void Gia_ManCheckFalseTest( Gia_Man_t * p, int nSlackMax );
 //    extern void Gia_ParTest( Gia_Man_t * p, int nWords, int nProcs );
-    extern void Gia_ManTisTest( Gia_Man_t * pInit );
+//    extern void Gia_ManTisTest( Gia_Man_t * pInit );
+    extern void Gia_Iso3Test( Gia_Man_t * p );
 
     Extra_UtilGetoptReset();
     while ( ( c = Extra_UtilGetopt( argc, argv, "WPFsvh" ) ) != EOF )
@@ -35013,7 +35348,7 @@ int Abc_CommandAbc9Test( Abc_Frame_t * pAbc, int argc, char ** argv )
 //    Jf_ManTestCnf( pAbc->pGia );
 //    Gia_ManCheckFalseTest( pAbc->pGia, nFrames );
 //    Gia_ParTest( pAbc->pGia, nWords, nProcs );
-    Gia_ManTisTest( pAbc->pGia );
+    Gia_Iso3Test( pAbc->pGia );
 //    printf( "\nThis command is currently disabled.\n\n" );
 
     return 0;
@@ -35032,5 +35367,5 @@ usage:
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
-
+#include "abciUnfold2.c"
 ABC_NAMESPACE_IMPL_END

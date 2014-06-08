@@ -1619,13 +1619,10 @@ Gia_Man_t * Gia_ManPerformMapping( Gia_Man_t * p, void * pp, int fNormalized )
     // compute switching for the IF objects
     if ( pPars->fPower )
     {
-        Gia_Obj_t * pObj; int i;
-        assert( pIfMan->vSwitching == NULL );
-        pIfMan->vSwitching = Vec_IntStart( If_ManObjNum(pIfMan) );
-        Gia_ManForEachObj( p, pObj, i )
-            if ( ~Gia_ObjValue(pObj) )
-                Vec_IntWriteEntry( pIfMan->vSwitching, Gia_ObjValue(pObj), Vec_IntEntry(p->vSwitching, i) );
-//        Vec_IntFreeP( &p->vSwitching );
+        if ( p->pManTime == NULL )
+            If_ManComputeSwitching( pIfMan );
+        else
+            Abc_Print( 0, "Switching activity computation for designs with boxes is disabled.\n" );
     }
     if ( p->pManTime )
         pIfMan->pManTim = Tim_ManDup( (Tim_Man_t *)p->pManTime, 0 );

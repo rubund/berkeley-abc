@@ -1201,20 +1201,22 @@ Gia_Man_t * Gia_ManDupDfs( Gia_Man_t * p )
   SeeAlso     []
 
 ***********************************************************************/
-void Gia_ManDupDfsRehash_rec( Gia_Man_t * pNew, Gia_Man_t * p, Gia_Obj_t * pObj )
+void Gia_ManDupCofactor_rec( Gia_Man_t * pNew, Gia_Man_t * p, Gia_Obj_t * pObj )
 {
     if ( ~pObj->Value )
         return;
     assert( Gia_ObjIsAnd(pObj) );
-    Gia_ManDupDfsRehash_rec( pNew, p, Gia_ObjFanin0(pObj) );
-    Gia_ManDupDfsRehash_rec( pNew, p, Gia_ObjFanin1(pObj) );
+    Gia_ManDupCofactor_rec( pNew, p, Gia_ObjFanin0(pObj) );
+    Gia_ManDupCofactor_rec( pNew, p, Gia_ObjFanin1(pObj) );
     pObj->Value = Gia_ManHashAnd( pNew, Gia_ObjFanin0Copy(pObj), Gia_ObjFanin1Copy(pObj) );
 }
-Gia_Man_t * Gia_ManDupDfsRehash( Gia_Man_t * p )
+Gia_Man_t * Gia_ManDupCofactor( Gia_Man_t * p, int iVar, int Value )
 {
-    Gia_Man_t * pNew;
+    Gia_Man_t * pNew, * pTemp;
     Gia_Obj_t * pObj;
     int i;
+    assert( iVar >= 0 && iVar < Gia_ManPiNum(p) );
+    assert( Value == 0 || Value == 1 );
     pNew = Gia_ManStart( Gia_ManObjNum(p) );
     pNew->pName = Abc_UtilStrsav( p->pName );
     pNew->pSpec = Abc_UtilStrsav( p->pSpec );
@@ -1222,15 +1224,110 @@ Gia_Man_t * Gia_ManDupDfsRehash( Gia_Man_t * p )
     Gia_ManConst0(p)->Value = 0;
     Gia_ManForEachCi( p, pObj, i )
         pObj->Value = Gia_ManAppendCi(pNew);
+    Gia_ManPi( p, iVar )->Value = Value; // modification!
     Gia_ManHashAlloc( pNew );
     Gia_ManForEachCo( p, pObj, i )
-        Gia_ManDupDfsRehash_rec( pNew, p, Gia_ObjFanin0(pObj) );
+        Gia_ManDupCofactor_rec( pNew, p, Gia_ObjFanin0(pObj) );
     Gia_ManForEachCo( p, pObj, i )
         Gia_ManAppendCo( pNew, Gia_ObjFanin0Copy(pObj) );
     Gia_ManSetRegNum( pNew, Gia_ManRegNum(p) );
     pNew->nConstrs = p->nConstrs;
-    if ( p->pCexSeq )
-        pNew->pCexSeq = Abc_CexDup( p->pCexSeq, Gia_ManRegNum(p) );
+    pNew = Gia_ManCleanup( pTemp = pNew );
+    Gia_ManStop( pTemp );
+    return pNew;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Existentially quantified given variable.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Gia_Man_t * Gia_ManDupExist( Gia_Man_t * p, int iVar )
+{
+    Gia_Man_t * pNew, * pTemp;
+    Gia_Obj_t * pObj;
+    int i;
+    assert( iVar >= 0 && iVar < Gia_ManPiNum(p) );
+    assert( Gia_ManPoNum(p) == 1 );
+    assert( Gia_ManRegNum(p) == 0 );
+    Gia_ManFillValue( p );
+    // find the cofactoring variable
+    pNew = Gia_ManStart( Gia_ManObjNum(p) );
+    pNew->pName = Abc_UtilStrsav( p->pName );
+    pNew->pSpec = Abc_UtilStrsav( p->pSpec );
+    Gia_ManHashAlloc( pNew );
+    // compute negative cofactor
+    Gia_ManConst0(p)->Value = 0;
+    Gia_ManForEachCi( p, pObj, i )
+        pObj->Value = Gia_ManAppendCi(pNew);
+    Gia_ManPi( p, iVar )->Value = Abc_Var2Lit( 0, 0 );
+    Gia_ManForEachAnd( p, pObj, i )
+        pObj->Value = Gia_ManHashAnd( pNew, Gia_ObjFanin0Copy(pObj), Gia_ObjFanin1Copy(pObj) );
+    Gia_ManForEachPo( p, pObj, i )
+        pObj->Value = Gia_ObjFanin0Copy(pObj);
+    // compute the positive cofactor
+    Gia_ManPi( p, iVar )->Value = Abc_Var2Lit( 0, 1 );
+    Gia_ManForEachAnd( p, pObj, i )
+        pObj->Value = Gia_ManHashAnd( pNew, Gia_ObjFanin0Copy(pObj), Gia_ObjFanin1Copy(pObj) );
+    // create OR gate
+    Gia_ManForEachPo( p, pObj, i )
+        pObj->Value = Gia_ManAppendCo( pNew, Gia_ManHashOr(pNew, Gia_ObjFanin0Copy(pObj), pObj->Value) );
+    Gia_ManHashStop( pNew );
+    pNew = Gia_ManCleanup( pTemp = pNew );
+    Gia_ManStop( pTemp );
+    return pNew;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Existentially quantifies the given variable.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Gia_Man_t * Gia_ManDupExist2( Gia_Man_t * p, int iVar )
+{
+    Gia_Man_t * pNew, * pTemp;
+    Gia_Obj_t * pObj;
+    int i;
+    assert( iVar >= 0 && iVar < Gia_ManPiNum(p) );
+    pNew = Gia_ManStart( Gia_ManObjNum(p) );
+    pNew->pName = Abc_UtilStrsav( p->pName );
+    pNew->pSpec = Abc_UtilStrsav( p->pSpec );
+    Gia_ManFillValue( p );
+    Gia_ManHashAlloc( pNew );
+    Gia_ManConst0(p)->Value = 0;
+    Gia_ManForEachCi( p, pObj, i )
+        pObj->Value = Gia_ManAppendCi(pNew);
+    // first part
+    Gia_ManPi( p, iVar )->Value = 0; // modification!
+    Gia_ManForEachCo( p, pObj, i )
+        Gia_ManDupCofactor_rec( pNew, p, Gia_ObjFanin0(pObj) );
+    Gia_ManForEachCo( p, pObj, i )
+        pObj->Value = Gia_ObjFanin0Copy(pObj);
+    // second part
+    Gia_ManPi( p, iVar )->Value = 1; // modification!
+    Gia_ManForEachAnd( p, pObj, i )
+        pObj->Value = ~0;
+    Gia_ManForEachCo( p, pObj, i )
+        Gia_ManDupCofactor_rec( pNew, p, Gia_ObjFanin0(pObj) );
+    // combination
+    Gia_ManForEachCo( p, pObj, i )
+        Gia_ManAppendCo( pNew, Gia_ManHashOr(pNew, Gia_ObjFanin0Copy(pObj), pObj->Value) );
+    Gia_ManSetRegNum( pNew, Gia_ManRegNum(p) );
+    pNew->nConstrs = p->nConstrs;
+    pNew = Gia_ManCleanup( pTemp = pNew );
+    Gia_ManStop( pTemp );
     return pNew;
 }
 

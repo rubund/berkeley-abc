@@ -155,6 +155,7 @@ float Abc_NtkMfsTotalSwitching( Abc_Ntk_t * pNtk )
         if ( (pObjAbc2 = Abc_ObjRegular((Abc_Obj_t *)pObjAbc->pTemp)) && (pObjAig = Aig_Regular((Aig_Obj_t *)pObjAbc2->pTemp)) )
         {
             Result += Abc_ObjFanoutNum(pObjAbc) * pSwitching[pObjAig->Id];
+//            Abc_ObjPrint( stdout, pObjAbc );
 //            printf( "%d = %.2f\n", i, Abc_ObjFanoutNum(pObjAbc) * pSwitching[pObjAig->Id] );
         }
     }
@@ -523,7 +524,7 @@ void Abc_NtkPrintLatch( FILE * pFile, Abc_Ntk_t * pNtk )
   SeeAlso     []
 
 ***********************************************************************/
-void Abc_NtkPrintFanio( FILE * pFile, Abc_Ntk_t * pNtk )
+void Abc_NtkPrintFanio( FILE * pFile, Abc_Ntk_t * pNtk, int fUsePis )
 {
     Abc_Obj_t * pNode;
     int i, k, nFanins, nFanouts;
@@ -556,6 +557,18 @@ void Abc_NtkPrintFanio( FILE * pFile, Abc_Ntk_t * pNtk )
         }
         vFanins->pArray[nFanins]++;
         vFanouts->pArray[nFanouts]++;
+    }
+    if ( fUsePis )
+    {
+        Vec_IntFill( vFanouts, Vec_IntSize(vFanouts), 0 );
+        Abc_NtkForEachCi( pNtk, pNode, i )
+        {
+            if ( Abc_NtkIsNetlist(pNtk) )
+                nFanouts = Abc_ObjFanoutNum( Abc_ObjFanout0(pNode) );
+            else
+                nFanouts = Abc_ObjFanoutNum(pNode);
+            vFanouts->pArray[nFanouts]++;
+        }
     }
     fprintf( pFile, "The distribution of fanins and fanouts in the network:\n" );
     fprintf( pFile, "  Number   Nodes with fanin  Nodes with fanout\n" );

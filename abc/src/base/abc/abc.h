@@ -673,6 +673,7 @@ extern ABC_DLL Vec_Ptr_t *        Abc_NtkConverLatchNamesIntoNumbers( Abc_Ntk_t 
 extern ABC_DLL Abc_Des_t *        Abc_DesCreate( char * pName );
 extern ABC_DLL void               Abc_DesCleanManPointer( Abc_Des_t * p, void * pMan );
 extern ABC_DLL void               Abc_DesFree( Abc_Des_t * p, Abc_Ntk_t * pNtk );
+extern ABC_DLL Abc_Des_t *        Abc_DesDup( Abc_Des_t * p );
 extern ABC_DLL void               Abc_DesPrint( Abc_Des_t * p );
 extern ABC_DLL int                Abc_DesAddModel( Abc_Des_t * p, Abc_Ntk_t * pNtk );
 extern ABC_DLL Abc_Ntk_t *        Abc_DesFindModelByName( Abc_Des_t * p, char * pName );
@@ -794,7 +795,7 @@ extern ABC_DLL float              Abc_NtkMfsTotalSwitching( Abc_Ntk_t * pNtk );
 extern ABC_DLL void               Abc_NtkPrintStats( Abc_Ntk_t * pNtk, int fFactored, int fSaveBest, int fDumpResult, int fUseLutLib, int fPrintMuxes, int fPower, int fGlitch, int fSkipBuf );
 extern ABC_DLL void               Abc_NtkPrintIo( FILE * pFile, Abc_Ntk_t * pNtk, int fPrintFlops );
 extern ABC_DLL void               Abc_NtkPrintLatch( FILE * pFile, Abc_Ntk_t * pNtk );
-extern ABC_DLL void               Abc_NtkPrintFanio( FILE * pFile, Abc_Ntk_t * pNtk );
+extern ABC_DLL void               Abc_NtkPrintFanio( FILE * pFile, Abc_Ntk_t * pNtk, int fUsePis );
 extern ABC_DLL void               Abc_NtkPrintFanioNew( FILE * pFile, Abc_Ntk_t * pNtk, int fMffc );
 extern ABC_DLL void               Abc_NodePrintFanio( FILE * pFile, Abc_Obj_t * pNode );
 extern ABC_DLL void               Abc_NtkPrintFactor( FILE * pFile, Abc_Ntk_t * pNtk, int fUseRealNames );

@@ -156,6 +156,7 @@ struct Gia_Man_t_
     Vec_Int_t *    vUserFfIds;    // numbers assigned to FFs by the user
     Vec_Int_t *    vCiNumsOrig;   // original CI names
     Vec_Int_t *    vCoNumsOrig;   // original CO names
+    Vec_Int_t *    vCofVars;      // cofactoring variables
     Vec_Vec_t *    vClockDoms;    // clock domains
     Vec_Flt_t *    vTiming;       // arrival/required/slack
     void *         pManTime;      // the timing manager
@@ -963,6 +964,7 @@ extern Gia_Man_t *         Gia_ManPerformBidec( Gia_Man_t * p, int fVerbose );
 /*=== giaCex.c ============================================================*/
 extern int                 Gia_ManVerifyCex( Gia_Man_t * pAig, Abc_Cex_t * p, int fDualOut );
 extern int                 Gia_ManFindFailedPoCex( Gia_Man_t * pAig, Abc_Cex_t * p, int nOutputs );
+extern int                 Gia_ManSetFailedPoCex( Gia_Man_t * pAig, Abc_Cex_t * p );
 extern void                Gia_ManCounterExampleValueStart( Gia_Man_t * pGia, Abc_Cex_t * pCex );
 extern void                Gia_ManCounterExampleValueStop( Gia_Man_t * pGia );
 extern int                 Gia_ManCounterExampleValueLookup( Gia_Man_t * pGia, int Id, int iFrame );
@@ -1012,7 +1014,8 @@ extern Gia_Man_t *         Gia_ManDupFlopClass( Gia_Man_t * p, int iClass );
 extern Gia_Man_t *         Gia_ManDupMarked( Gia_Man_t * p );
 extern Gia_Man_t *         Gia_ManDupTimes( Gia_Man_t * p, int nTimes );  
 extern Gia_Man_t *         Gia_ManDupDfs( Gia_Man_t * p );  
-extern Gia_Man_t *         Gia_ManDupDfsRehash( Gia_Man_t * p );  
+extern Gia_Man_t *         Gia_ManDupCofactor( Gia_Man_t * p, int iVar, int Value );  
+extern Gia_Man_t *         Gia_ManDupExist( Gia_Man_t * p, int iVar );
 extern Gia_Man_t *         Gia_ManDupDfsSkip( Gia_Man_t * p );
 extern Gia_Man_t *         Gia_ManDupDfsCone( Gia_Man_t * p, Gia_Obj_t * pObj );
 extern Gia_Man_t *         Gia_ManDupDfsLitArray( Gia_Man_t * p, Vec_Int_t * vLits );
