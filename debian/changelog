@@ -1,4 +1,4 @@
-yosys-abc (1.01-hg2-67c84cdd49e4-1~trusty) trusty; urgency=low
+yosys-abc (1.01-zhg2-67c84cdd49e4-1~trusty) trusty; urgency=low
 
   * New package with upstream changes
 
