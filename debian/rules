@@ -14,6 +14,5 @@
 
 
 override_dh_auto_build:
-	cd abc && make PROG="abc" MSG_PREFIX="ABC: "
-	cp abc/abc abc
+	make PROG="abc" MSG_PREFIX="ABC: "
 
