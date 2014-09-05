@@ -109,6 +109,7 @@ void Gia_ManStop( Gia_Man_t * p )
     Vec_WrdFreeP( &p->vTtMemory );
     Vec_PtrFreeP( &p->vTtInputs );
     Vec_IntFreeP( &p->vMapping );
+    Vec_IntFreeP( &p->vCellMapping );
     Vec_IntFreeP( &p->vPacking );
     Vec_FltFreeP( &p->vInArrs );
     Vec_FltFreeP( &p->vOutReqs );
@@ -385,6 +386,11 @@ void Gia_ManPrintChoiceStats( Gia_Man_t * p )
 void Gia_ManPrintStats( Gia_Man_t * p, Gps_Par_t * pPars )
 {
     extern float Gia_ManLevelAve( Gia_Man_t * p );
+    if ( pPars && pPars->fMiter )
+    {
+        Gia_ManPrintStatsMiter( p, 0 );
+        return;
+    }
 #ifdef WIN32
     SetConsoleTextAttribute( GetStdHandle(STD_OUTPUT_HANDLE), 15 ); // bright
     if ( p->pName )
@@ -419,20 +425,20 @@ void Gia_ManPrintStats( Gia_Man_t * p, Gps_Par_t * pPars )
     if ( pPars && pPars->fCut )
         Abc_Print( 1, "  cut = %d(%d)", Gia_ManCrossCut(p, 0), Gia_ManCrossCut(p, 1) );
     Abc_Print( 1, "  mem =%5.2f MB", Gia_ManMemory(p)/(1<<20) );
-    if ( Gia_ManHasDangling(p) )
-        Abc_Print( 1, "  ch =%5d", Gia_ManEquivCountClasses(p) );
-    if ( p->pMuxes )
-    {
-        Abc_Print( 1, "  and =%5d", Gia_ManAndNum(p)-Gia_ManXorNum(p)-Gia_ManMuxNum(p) );
-        Abc_Print( 1, "  xor =%5d", Gia_ManXorNum(p) );
-        Abc_Print( 1, "  mux =%5d", Gia_ManMuxNum(p) );
-    }
+    if ( Gia_ManHasChoices(p) )
+        Abc_Print( 1, "  ch =%5d", Gia_ManChoiceNum(p) );
+    if ( pPars && pPars->fMuxXor )
+        printf( "\nXOR/MUX " ), Gia_ManPrintMuxStats( p );
     if ( pPars && pPars->fSwitch )
     {
-        if ( p->pSwitching )
-            Abc_Print( 1, "  power =%7.2f", Gia_ManEvaluateSwitching(p) );
-        else
-            Abc_Print( 1, "  power =%7.2f", Gia_ManComputeSwitching(p, 48, 16, 0) );
+        static int nPiPo = 0;
+        static float PrevSwiTotal = 0;
+        float SwiTotal = Gia_ManComputeSwitching( p, 48, 16, 0 );
+        Abc_Print( 1, "  power =%8.1f", SwiTotal );
+        if ( PrevSwiTotal > 0 && nPiPo == Gia_ManCiNum(p) + Gia_ManCoNum(p) )
+            Abc_Print( 1, " %6.2f %%", 100.0*(PrevSwiTotal-SwiTotal)/PrevSwiTotal );
+        else if ( PrevSwiTotal == 0 || nPiPo != Gia_ManCiNum(p) + Gia_ManCoNum(p) )
+            PrevSwiTotal = SwiTotal, nPiPo = Gia_ManCiNum(p) + Gia_ManCoNum(p);
     }
 //    Abc_Print( 1, "obj =%5d  ", Gia_ManObjNum(p) );
     Abc_Print( 1, "\n" );
@@ -440,9 +446,7 @@ void Gia_ManPrintStats( Gia_Man_t * p, Gps_Par_t * pPars )
 //    Gia_ManSatExperiment( p );
     if ( p->pReprs && p->pNexts )
         Gia_ManEquivPrintClasses( p, 0, 0.0 );
-    if ( p->pSibls )
-        Gia_ManPrintChoiceStats( p );
-    if ( Gia_ManHasMapping(p) )
+    if ( Gia_ManHasMapping(p) && (pPars == NULL || !pPars->fSkipMap) )
         Gia_ManPrintMappingStats( p, pPars ? pPars->pDumpFile : NULL );
     if ( pPars && pPars->fNpn && Gia_ManHasMapping(p) && Gia_ManLutSizeMax(p) <= 4 )
         Gia_ManPrintNpnClasses( p );
@@ -548,6 +552,40 @@ void Gia_ManPrintMiterStatus( Gia_Man_t * p )
     }
     Abc_Print( 1, "Outputs = %7d.  Unsat = %7d.  Sat = %7d.  Undec = %7d.\n",
         Gia_ManPoNum(p), nUnsat, nSat, nUndec );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Statistics of the miter.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Gia_ManPrintStatsMiter( Gia_Man_t * p, int fVerbose )
+{
+    Gia_Obj_t * pObj;
+    Vec_Flt_t * vProb;
+    int i, iObjId;
+    Gia_ManLevelNum( p );
+    Gia_ManCreateRefs( p );
+    vProb = Gia_ManPrintOutputProb( p );
+    printf( "Statistics for each outputs of the miter:\n" );
+    Gia_ManForEachPo( p, pObj, i )
+    {
+        iObjId = Gia_ObjId(p, pObj);
+        printf( "%4d : ", i );
+        printf( "Level = %5d  ",  Gia_ObjLevelId(p, iObjId) );
+        printf( "Supp = %5d  ",   Gia_ManSuppSize(p, &iObjId, 1) );
+        printf( "Cone = %5d  ",   Gia_ManConeSize(p, &iObjId, 1) );
+        printf( "Mffc = %5d  ",   Gia_NodeMffcSize(p, Gia_ObjFanin0(pObj)) );
+        printf( "Prob = %8.4f  ", Vec_FltEntry(vProb, iObjId) );
+        printf( "\n" );
+    }
+    Vec_FltFree( vProb );
 }
 
 /**Function*************************************************************

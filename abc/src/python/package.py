@@ -25,15 +25,28 @@ def zip_library(f, extra_files = []):
     zf.close()
     
 def add_python_lib(tf, lib_dir, lib, mtime):
+
+    _, prefix = os.path.split(lib)
     
     for root, _, files in os.walk(lib):
-        
-        arcroot = os.path.join( lib_dir, os.path.relpath(root, lib) )
+
+        relpath = os.path.relpath(root, lib)
+
+        if '.hg' in relpath.split('/'):
+            continue
+
+        if relpath=='.':
+            arcroot = lib_dir
+        else:
+            arcroot = os.path.join( lib_dir, os.path.relpath(root, lib) )
+
+        arcroot = os.path.join(arcroot, prefix)
+
         add_dir(tf, arcroot, mtime)
         
         for f in files:
             _, ext = os.path.splitext(f)
-            if ext in ['.py']:
+            if ext in ['.py', '.so']:
                 add_file( tf, os.path.join(root,f), os.path.join(arcroot, f), 0666, mtime)
 
 def add_dir(tf, dir, mtime):
@@ -61,7 +74,7 @@ def add_file(tf, fname, arcname, mode, mtime):
     with open(fname, "rb") as f:
         add_fileobj(tf, f, arcname, mode, mtime)
 
-def package(pyabc_dir, extra_bin, extra_lib, abc_exe, abc_sh, pyabc, ofname, scripts_dir, use_sys):
+def package(pyabc_dir, extra_bin, extra_lib, extra_files, abc_exe, abc_sh, pyabc, ofname, scripts_dir, use_sys):
     
     mtime = time.time()
     
@@ -76,6 +89,8 @@ def package(pyabc_dir, extra_bin, extra_lib, abc_exe, abc_sh, pyabc, ofname, scr
 
     if scripts_dir:
         for fn in os.listdir(scripts_dir):
+            if fn.startswith('.'):
+                continue
             fullname = os.path.join(scripts_dir, fn)
             if os.path.isfile(fullname):
                 fnroot, fnext = os.path.splitext(fn)
@@ -93,6 +108,9 @@ def package(pyabc_dir, extra_bin, extra_lib, abc_exe, abc_sh, pyabc, ofname, scr
 
     for lib in extra_lib:
         add_python_lib( tf, lib_dir, lib, mtime)
+    
+    for file, dest in extra_files:
+        add_file(tf, file, '%s/%s'%(pyabc_dir, dest), 0666, mtime)
     
     for entry in os.listdir(pyabc):
         if entry.endswith('.py'):
@@ -130,6 +148,7 @@ def main(args):
     parser.add_option("-d", "--pyabc_dir", dest="pyabc_dir", help="name of generated directory" )
     parser.add_option("-b", "--extra_bin", dest="extra_bin", help="extra binaries to pack" )
     parser.add_option("-l", "--extra_lib", dest="extra_lib", help="extra directories in lib to pack" )
+    parser.add_option("-f", "--extra_files", dest="extra_files", help="additional files (comma separated pairs of file:dest" )
     parser.add_option("-a", "--abc", dest="abc", help="location of the ABC exeutable")
     parser.add_option("-s", "--abc_sh", dest="abc_sh", help="location of the ABC setup script")
     parser.add_option("-p", "--pyabc", dest="pyabc", help="location of pyabc.py")
@@ -149,8 +168,9 @@ def main(args):
 
     extra_bin = options.extra_bin.split(',') if options.extra_bin else []
     extra_lib = options.extra_lib.split(',') if options.extra_lib else []
+    extra_files = [ s.split(':') for s in options.extra_files.split(',')] if options.extra_files else []    
 
-    return package(options.pyabc_dir, extra_bin, extra_lib, options.abc, options.abc_sh, options.pyabc, options.out, options.scripts, options.sys)
+    return package(options.pyabc_dir, extra_bin, extra_lib, extra_files, options.abc, options.abc_sh, options.pyabc, options.out, options.scripts, options.sys)
 
 if __name__=="__main__":
     main(sys.argv)

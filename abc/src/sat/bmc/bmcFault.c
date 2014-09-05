@@ -141,6 +141,7 @@ static inline Cnf_Dat_t * Cnf_DeriveGiaRemapped( Gia_Man_t * p )
     pCnf = Cnf_Derive( pAig, Aig_ManCoNum(pAig) );
     Aig_ManStop( pAig );
     return pCnf;
+//    return Mf_ManGenerateCnf( p, 8, 0, 0, 0 );
 }
 
 /**Function*************************************************************
@@ -1015,6 +1016,7 @@ void Gia_ManFaultTest( Gia_Man_t * p, Gia_Man_t * pG, Bmc_ParFf_t * pPars )
         // add constraint
         Gia_ManFaultAddOne( pM, pCnf, pSat, vLits, nFuncVars );
     }
+finish:
     // print results
 //    if ( status == l_False )
 //        Gia_ManPrintResults( p, pSat, Iter, Abc_Clock() - clkTotal );
@@ -1135,7 +1137,6 @@ void Gia_ManFaultTest( Gia_Man_t * p, Gia_Man_t * pG, Bmc_ParFf_t * pPars )
             Abc_PrintTime( 1, "Time", Abc_Clock() - clk );
         }
     }
-finish:
     sat_solver_delete( pSat );
     Cnf_DataFree( pCnf );
     Gia_ManStop( pM );

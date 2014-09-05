@@ -53,12 +53,64 @@ static word s_Truths6Neg[6] = {
     ABC_CONST(0x00000000FFFFFFFF)
 };
 
+static word s_TruthXors[6] = {
+    ABC_CONST(0x0000000000000000),
+    ABC_CONST(0x6666666666666666),
+    ABC_CONST(0x6969696969696969),
+    ABC_CONST(0x6996699669966996),
+    ABC_CONST(0x6996966969969669),
+    ABC_CONST(0x6996966996696996)
+};
+
 static word s_PMasks[5][3] = {
     { ABC_CONST(0x9999999999999999), ABC_CONST(0x2222222222222222), ABC_CONST(0x4444444444444444) },
     { ABC_CONST(0xC3C3C3C3C3C3C3C3), ABC_CONST(0x0C0C0C0C0C0C0C0C), ABC_CONST(0x3030303030303030) },
     { ABC_CONST(0xF00FF00FF00FF00F), ABC_CONST(0x00F000F000F000F0), ABC_CONST(0x0F000F000F000F00) },
     { ABC_CONST(0xFF0000FFFF0000FF), ABC_CONST(0x0000FF000000FF00), ABC_CONST(0x00FF000000FF0000) },
     { ABC_CONST(0xFFFF00000000FFFF), ABC_CONST(0x00000000FFFF0000), ABC_CONST(0x0000FFFF00000000) }
+};
+
+static word Ps_PMasks[5][6][3] = {
+	{ 
+        { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 0 0  
+        { ABC_CONST(0x9999999999999999), ABC_CONST(0x2222222222222222), ABC_CONST(0x4444444444444444) }, // 0 1  
+        { ABC_CONST(0xA5A5A5A5A5A5A5A5), ABC_CONST(0x0A0A0A0A0A0A0A0A), ABC_CONST(0x5050505050505050) }, // 0 2 
+        { ABC_CONST(0xAA55AA55AA55AA55), ABC_CONST(0x00AA00AA00AA00AA), ABC_CONST(0x5500550055005500) }, // 0 3 
+        { ABC_CONST(0xAAAA5555AAAA5555), ABC_CONST(0x0000AAAA0000AAAA), ABC_CONST(0x5555000055550000) }, // 0 4 
+        { ABC_CONST(0xAAAAAAAA55555555), ABC_CONST(0x00000000AAAAAAAA), ABC_CONST(0x5555555500000000) }  // 0 5 
+    },
+	{ 
+        { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 1 0  
+        { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 1 1  
+        { ABC_CONST(0xC3C3C3C3C3C3C3C3), ABC_CONST(0x0C0C0C0C0C0C0C0C), ABC_CONST(0x3030303030303030) }, // 1 2 
+        { ABC_CONST(0xCC33CC33CC33CC33), ABC_CONST(0x00CC00CC00CC00CC), ABC_CONST(0x3300330033003300) }, // 1 3 
+        { ABC_CONST(0xCCCC3333CCCC3333), ABC_CONST(0x0000CCCC0000CCCC), ABC_CONST(0x3333000033330000) }, // 1 4 
+        { ABC_CONST(0xCCCCCCCC33333333), ABC_CONST(0x00000000CCCCCCCC), ABC_CONST(0x3333333300000000) }  // 1 5 
+    },
+	{ 
+        { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 2 0  
+        { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 2 1  
+        { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 2 2 
+        { ABC_CONST(0xF00FF00FF00FF00F), ABC_CONST(0x00F000F000F000F0), ABC_CONST(0x0F000F000F000F00) }, // 2 3 
+        { ABC_CONST(0xF0F00F0FF0F00F0F), ABC_CONST(0x0000F0F00000F0F0), ABC_CONST(0x0F0F00000F0F0000) }, // 2 4 
+        { ABC_CONST(0xF0F0F0F00F0F0F0F), ABC_CONST(0x00000000F0F0F0F0), ABC_CONST(0x0F0F0F0F00000000) }  // 2 5 
+    },
+	{ 
+        { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 3 0  
+        { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 3 1  
+        { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 3 2 
+        { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 3 3 
+        { ABC_CONST(0xFF0000FFFF0000FF), ABC_CONST(0x0000FF000000FF00), ABC_CONST(0x00FF000000FF0000) }, // 3 4 
+        { ABC_CONST(0xFF00FF0000FF00FF), ABC_CONST(0x00000000FF00FF00), ABC_CONST(0x00FF00FF00000000) }  // 3 5 
+    },
+	{ 
+        { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 4 0  
+        { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 4 1  
+        { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 4 2 
+        { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 4 3 
+        { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 4 4 
+        { ABC_CONST(0xFFFF00000000FFFF), ABC_CONST(0x00000000FFFF0000), ABC_CONST(0x0000FFFF00000000) }  // 4 5 
+    }
 };
 
 // the bit count for the first 256 integer numbers
@@ -117,6 +169,19 @@ static inline void    Abc_TtXorHex( word * p, int k, int d )  { p[k>>4] ^= (((wo
 static inline int  Abc_TtWordNum( int nVars )     { return nVars <= 6 ? 1 : 1 << (nVars-6); }
 static inline int  Abc_TtByteNum( int nVars )     { return nVars <= 3 ? 1 : 1 << (nVars-3); }
 static inline int  Abc_TtHexDigitNum( int nVars ) { return nVars <= 2 ? 1 : 1 << (nVars-2); }
+
+/**Function*************************************************************
+
+  Synopsis    [Bit mask.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline word Abc_Tt6Mask( int nBits )       { assert( nBits >= 0 && nBits <= 64 ); return (~(word)0) >> (64-nBits);        }
 
 /**Function*************************************************************
 
@@ -906,6 +971,37 @@ static inline int Abc_Tt6SupportAndSize( word t, int nVars, int * pSuppSize )
 
 /**Function*************************************************************
 
+  Synopsis    [Detecting elementary functions.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline int Abc_TtOnlyOneOne( word t )
+{
+    if ( t == 0 )
+        return 0;
+    return (t & (t-1)) == 0;
+}
+static inline int Gia_ManTtIsAndType( word t, int nVars )
+{
+    return Abc_TtOnlyOneOne( t & Abc_Tt6Mask(1 << nVars) );
+}
+static inline int Gia_ManTtIsOrType( word t, int nVars )
+{
+    return Abc_TtOnlyOneOne( ~t & Abc_Tt6Mask(1 << nVars) );
+}
+static inline int Gia_ManTtIsXorType( word t, int nVars )
+{
+    return ((((t & 1) ? ~t : t) ^ s_TruthXors[nVars]) & Abc_Tt6Mask(1 << nVars)) == 0;
+}
+
+
+/**Function*************************************************************
+
   Synopsis    []
 
   Description []
@@ -937,6 +1033,31 @@ static inline void Abc_TtFlip( word * pTruth, int nWords, int iVar )
 			for ( i = 0; i < iStep; i++ )
                 ABC_SWAP( word, pTruth[i], pTruth[i + iStep] );
 	}	
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline word Abc_Tt6Permute_rec( word t, int * pPerm, int nVars )
+{
+    word uRes0, uRes1; int Var;
+    if (  t == 0 ) return 0;
+    if ( ~t == 0 ) return ~(word)0;
+    for ( Var = nVars-1; Var >= 0; Var-- )
+        if ( Abc_Tt6HasVar( t, Var ) )
+             break;
+    assert( Var >= 0 );
+    uRes0 = Abc_Tt6Permute_rec( Abc_Tt6Cofactor0(t, Var), pPerm, Var );
+    uRes1 = Abc_Tt6Permute_rec( Abc_Tt6Cofactor1(t, Var), pPerm, Var );
+    return (uRes0 & s_Truths6Neg[pPerm[Var]]) | (uRes1 & s_Truths6[pPerm[Var]]);
 }
 
 /**Function*************************************************************
@@ -985,50 +1106,15 @@ static inline void Abc_TtSwapAdjacent( word * pTruth, int nWords, int iVar )
                 ABC_SWAP( word, pTruth[i + iStep], pTruth[i + 2*iStep] );
     }
 }
+static inline word Abc_Tt6SwapVars( word t, int iVar, int jVar )
+{
+    word * s_PMasks = Ps_PMasks[iVar][jVar];
+    int shift = (1 << jVar) - (1 << iVar);
+    assert( iVar < jVar );
+    return (t & s_PMasks[0]) | ((t & s_PMasks[1]) << shift) | ((t & s_PMasks[2]) >> shift);
+}
 static inline void Abc_TtSwapVars( word * pTruth, int nVars, int iVar, int jVar )
 {
-	static word Ps_PMasks[5][6][3] = {
-		{ 
-            { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 0 0  
-            { ABC_CONST(0x9999999999999999), ABC_CONST(0x2222222222222222), ABC_CONST(0x4444444444444444) }, // 0 1  
-            { ABC_CONST(0xA5A5A5A5A5A5A5A5), ABC_CONST(0x0A0A0A0A0A0A0A0A), ABC_CONST(0x5050505050505050) }, // 0 2 
-            { ABC_CONST(0xAA55AA55AA55AA55), ABC_CONST(0x00AA00AA00AA00AA), ABC_CONST(0x5500550055005500) }, // 0 3 
-            { ABC_CONST(0xAAAA5555AAAA5555), ABC_CONST(0x0000AAAA0000AAAA), ABC_CONST(0x5555000055550000) }, // 0 4 
-            { ABC_CONST(0xAAAAAAAA55555555), ABC_CONST(0x00000000AAAAAAAA), ABC_CONST(0x5555555500000000) }  // 0 5 
-        },
-		{ 
-            { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 1 0  
-            { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 1 1  
-            { ABC_CONST(0xC3C3C3C3C3C3C3C3), ABC_CONST(0x0C0C0C0C0C0C0C0C), ABC_CONST(0x3030303030303030) }, // 1 2 
-            { ABC_CONST(0xCC33CC33CC33CC33), ABC_CONST(0x00CC00CC00CC00CC), ABC_CONST(0x3300330033003300) }, // 1 3 
-            { ABC_CONST(0xCCCC3333CCCC3333), ABC_CONST(0x0000CCCC0000CCCC), ABC_CONST(0x3333000033330000) }, // 1 4 
-            { ABC_CONST(0xCCCCCCCC33333333), ABC_CONST(0x00000000CCCCCCCC), ABC_CONST(0x3333333300000000) }  // 1 5 
-        },
-		{ 
-            { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 2 0  
-            { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 2 1  
-            { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 2 2 
-            { ABC_CONST(0xF00FF00FF00FF00F), ABC_CONST(0x00F000F000F000F0), ABC_CONST(0x0F000F000F000F00) }, // 2 3 
-            { ABC_CONST(0xF0F00F0FF0F00F0F), ABC_CONST(0x0000F0F00000F0F0), ABC_CONST(0x0F0F00000F0F0000) }, // 2 4 
-            { ABC_CONST(0xF0F0F0F00F0F0F0F), ABC_CONST(0x00000000F0F0F0F0), ABC_CONST(0x0F0F0F0F00000000) }  // 2 5 
-        },
-		{ 
-            { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 3 0  
-            { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 3 1  
-            { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 3 2 
-            { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 3 3 
-            { ABC_CONST(0xFF0000FFFF0000FF), ABC_CONST(0x0000FF000000FF00), ABC_CONST(0x00FF000000FF0000) }, // 3 4 
-            { ABC_CONST(0xFF00FF0000FF00FF), ABC_CONST(0x00000000FF00FF00), ABC_CONST(0x00FF00FF00000000) }  // 3 5 
-        },
-		{ 
-            { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 4 0  
-            { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 4 1  
-            { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 4 2 
-            { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 4 3 
-            { ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000), ABC_CONST(0x0000000000000000) }, // 4 4 
-            { ABC_CONST(0xFFFF00000000FFFF), ABC_CONST(0x00000000FFFF0000), ABC_CONST(0x0000FFFF00000000) }  // 4 5 
-        }
-	};
 	if ( iVar == jVar )
 		return;
 	if ( jVar < iVar )
@@ -1036,13 +1122,11 @@ static inline void Abc_TtSwapVars( word * pTruth, int nVars, int iVar, int jVar 
     assert( iVar < jVar && jVar < nVars );
     if ( nVars <= 6 )
     {
-        word * s_PMasks = Ps_PMasks[iVar][jVar];
-        int shift = (1 << jVar) - (1 << iVar);
-        pTruth[0] = (pTruth[0] & s_PMasks[0]) | ((pTruth[0] & s_PMasks[1]) << shift) | ((pTruth[0] & s_PMasks[2]) >> shift);
+        pTruth[0] = Abc_Tt6SwapVars( pTruth[0], iVar, jVar );
         return;
     }
 	if ( jVar <= 5 )
-	{
+    {
         word * s_PMasks = Ps_PMasks[iVar][jVar];
 	    int nWords = Abc_TtWordNum(nVars);
 		int w, shift = (1 << jVar) - (1 << iVar);
@@ -1146,6 +1230,56 @@ static inline int Abc_TtMinimumBase( word * t, int * pSupp, int nVarsAll, int * 
   SeeAlso     []
 
 ***********************************************************************/
+static inline word Abc_Tt6Expand( word t, int * pCut0, int nCutSize0, int * pCut, int nCutSize )
+{
+    int i, k;
+    for ( i = nCutSize - 1, k = nCutSize0 - 1; i >= 0 && k >= 0; i-- )
+    {
+        if ( pCut[i] > pCut0[k] )
+            continue;
+        assert( pCut[i] == pCut0[k] );
+        if ( k < i )
+            t = Abc_Tt6SwapVars( t, k, i );
+        k--;
+    }
+    assert( k == -1 );
+    return t;
+}
+static inline void Abc_TtExpand( word * pTruth0, int nVars, int * pCut0, int nCutSize0, int * pCut, int nCutSize )
+{
+    int i, k;
+    for ( i = nCutSize - 1, k = nCutSize0 - 1; i >= 0 && k >= 0; i-- )
+    {
+        if ( pCut[i] > pCut0[k] )
+            continue;
+        assert( pCut[i] == pCut0[k] );
+        if ( k < i )
+            Abc_TtSwapVars( pTruth0, nVars, k, i );
+        k--;
+    }
+    assert( k == -1 );
+}
+static inline int Abc_Tt6MinBase( word * pTruth, int * pVars, int nVars ) 
+{
+    word t = *pTruth;
+    int i, k;
+    for ( i = k = 0; i < nVars; i++ )
+    {
+        if ( !Abc_Tt6HasVar( t, i ) )
+            continue;
+        if ( k < i )
+        {
+            if ( pVars ) pVars[k] = pVars[i];
+            t = Abc_Tt6SwapVars( t, k, i );
+        }
+        k++;
+    }
+    if ( k == nVars )
+        return k;
+    assert( k < nVars );
+    *pTruth = t;
+    return k;
+}
 static inline int Abc_TtMinBase( word * pTruth, int * pVars, int nVars, int nVarsAll ) 
 {
     int i, k;
@@ -1166,20 +1300,6 @@ static inline int Abc_TtMinBase( word * pTruth, int * pVars, int nVars, int nVar
     assert( k < nVars );
 //    assert( k == Abc_TtSupportSize(pTruth, nVars) );
     return k;
-}
-static inline void Abc_TtStretch( word * pTruth0, int nVars, int * pCut0, int nCutSize0, int * pCut, int nCutSize )
-{
-    int i, k;
-    for ( i = nCutSize - 1, k = nCutSize0 - 1; i >= 0 && k >= 0; i-- )
-    {
-        if ( pCut[i] > pCut0[k] )
-            continue;
-        assert( pCut[i] == pCut0[k] );
-        if ( k < i )
-            Abc_TtSwapVars( pTruth0, nVars, k, i );
-        k--;
-    }
-    assert( k == -1 );
 }
 
 /**Function*************************************************************
@@ -1374,16 +1494,19 @@ static inline void Abc_TtReverseBits( word * pTruth, int nVars )
   SeeAlso     []
 
 ***********************************************************************/
-static inline word Abc_Tt6Isop( word uOn, word uOnDc, int nVars )
+static inline word Abc_Tt6Isop( word uOn, word uOnDc, int nVars, int * pnCubes )
 {
     word uOn0, uOn1, uOnDc0, uOnDc1, uRes0, uRes1, uRes2;
     int Var;
-    assert( nVars <= 5 );
+    assert( nVars <= 6 );
     assert( (uOn & ~uOnDc) == 0 );
     if ( uOn == 0 )
         return 0;
     if ( uOnDc == ~(word)0 )
+    {
+        (*pnCubes)++;
         return ~(word)0;
+    }
     assert( nVars > 0 );
     // find the topmost var
     for ( Var = nVars-1; Var >= 0; Var-- )
@@ -1396,16 +1519,352 @@ static inline word Abc_Tt6Isop( word uOn, word uOnDc, int nVars )
     uOnDc0 = Abc_Tt6Cofactor0( uOnDc, Var );
     uOnDc1 = Abc_Tt6Cofactor1( uOnDc, Var );
     // solve for cofactors
-    uRes0 = Abc_Tt6Isop( uOn0 & ~uOnDc1, uOnDc0, Var );
-    uRes1 = Abc_Tt6Isop( uOn1 & ~uOnDc0, uOnDc1, Var );
-    uRes2 = Abc_Tt6Isop( (uOn0 & ~uRes0) | (uOn1 & ~uRes1), uOnDc0 & uOnDc1, Var );
+    uRes0 = Abc_Tt6Isop( uOn0 & ~uOnDc1, uOnDc0, Var, pnCubes );
+    uRes1 = Abc_Tt6Isop( uOn1 & ~uOnDc0, uOnDc1, Var, pnCubes );
+    uRes2 = Abc_Tt6Isop( (uOn0 & ~uRes0) | (uOn1 & ~uRes1), uOnDc0 & uOnDc1, Var, pnCubes );
     // derive the final truth table
     uRes2 |= (uRes0 & s_Truths6Neg[Var]) | (uRes1 & s_Truths6[Var]);
     assert( (uOn & ~uRes2) == 0 );
     assert( (uRes2 & ~uOnDc) == 0 );
     return uRes2;
 }
+static inline int Abc_Tt7Isop( word uOn[2], word uOnDc[2], int nVars, word uRes[2] )
+{
+    int nCubes = 0;
+    if ( nVars <= 6 || (uOn[0] == uOn[1] && uOnDc[0] == uOnDc[1]) )
+        uRes[0] = uRes[1] = Abc_Tt6Isop( uOn[0], uOnDc[0], Abc_MinInt(nVars, 6), &nCubes );
+    else
+    {
+        word uRes0, uRes1, uRes2;
+        assert( nVars == 7 );
+        // solve for cofactors
+        uRes0 = Abc_Tt6Isop( uOn[0] & ~uOnDc[1], uOnDc[0], 6, &nCubes );
+        uRes1 = Abc_Tt6Isop( uOn[1] & ~uOnDc[0], uOnDc[1], 6, &nCubes );
+        uRes2 = Abc_Tt6Isop( (uOn[0] & ~uRes0) | (uOn[1] & ~uRes1), uOnDc[0] & uOnDc[1], 6, &nCubes );
+        // derive the final truth table
+        uRes[0] = uRes2 | uRes0;
+        uRes[1] = uRes2 | uRes1;
+        assert( (uOn[0] & ~uRes[0]) == 0 && (uOn[1] & ~uRes[1]) == 0 );
+        assert( (uRes[0] & ~uOnDc[0])==0 && (uRes[1] & ~uOnDc[1])==0 );
+    }
+    return nCubes;
+}
+static inline int Abc_Tt8Isop( word uOn[4], word uOnDc[4], int nVars, word uRes[4] )
+{
+    int nCubes = 0;
+    if ( nVars <= 6 )
+        uRes[0] = uRes[1] = uRes[2] = uRes[3] = Abc_Tt6Isop( uOn[0], uOnDc[0], nVars, &nCubes );
+    else if ( nVars == 7 || (uOn[0] == uOn[2] && uOn[1] == uOn[3] && uOnDc[0] == uOnDc[2] && uOnDc[1] == uOnDc[3]) )
+    {
+        nCubes = Abc_Tt7Isop( uOn, uOnDc, 7, uRes );
+        uRes[2] = uRes[0];
+        uRes[3] = uRes[1];
+    }
+    else 
+    {
+        word uOn0[2], uOn1[2], uOn2[2], uOnDc2[2], uRes0[2], uRes1[2], uRes2[2];
+        assert( nVars == 8 );
+        // cofactor
+        uOn0[0] = uOn[0] & ~uOnDc[2];
+        uOn0[1] = uOn[1] & ~uOnDc[3];
+        uOn1[0] = uOn[2] & ~uOnDc[0];
+        uOn1[1] = uOn[3] & ~uOnDc[1];
+        uOnDc2[0] = uOnDc[0] & uOnDc[2];
+        uOnDc2[1] = uOnDc[1] & uOnDc[3];
+        // solve for cofactors
+        nCubes += Abc_Tt7Isop( uOn0, uOnDc+0, 7, uRes0 );
+        nCubes += Abc_Tt7Isop( uOn1, uOnDc+2, 7, uRes1 );
+        uOn2[0] = (uOn[0] & ~uRes0[0]) | (uOn[2] & ~uRes1[0]);
+        uOn2[1] = (uOn[1] & ~uRes0[1]) | (uOn[3] & ~uRes1[1]);
+        nCubes += Abc_Tt7Isop( uOn2, uOnDc2, 7, uRes2 );
+        // derive the final truth table
+        uRes[0] = uRes2[0] | uRes0[0];
+        uRes[1] = uRes2[1] | uRes0[1];
+        uRes[2] = uRes2[0] | uRes1[0];
+        uRes[3] = uRes2[1] | uRes1[1];
+        assert( (uOn[0] & ~uRes[0]) == 0 && (uOn[1] & ~uRes[1]) == 0 && (uOn[2] & ~uRes[2]) == 0 && (uOn[3] & ~uRes[3]) == 0 );
+        assert( (uRes[0] & ~uOnDc[0])==0 && (uRes[1] & ~uOnDc[1])==0 && (uRes[2] & ~uOnDc[2])==0 && (uRes[3] & ~uOnDc[3])==0 );
+    }
+    return nCubes;
+}
 
+/**Function*************************************************************
+
+  Synopsis    [Computes CNF size.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline int Abc_Tt6CnfSize( word t, int nVars )
+{
+    int nCubes = 0;
+    Abc_Tt6Isop(  t,  t, nVars, &nCubes );
+    Abc_Tt6Isop( ~t, ~t, nVars, &nCubes );
+    assert( nCubes <= 64 );
+    return nCubes;
+}
+static inline int Abc_Tt8CnfSize( word t[4], int nVars )
+{
+    word uRes[4], tc[4] = {~t[0], ~t[1], ~t[2], ~t[3]};
+    int nCubes = 0;
+    nCubes += Abc_Tt8Isop( t,  t,  nVars, uRes );
+    nCubes += Abc_Tt8Isop( tc, tc, nVars, uRes );
+    assert( nCubes <= 256 );
+    return nCubes;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Derives ISOP cover for the function.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline word Abc_Tt6IsopCover( word uOn, word uOnDc, int nVars, int * pCover, int * pnCubes )
+{
+    word uOn0, uOn1, uOnDc0, uOnDc1, uRes0, uRes1, uRes2;
+    int c, Var, nBeg0, nEnd0, nEnd1;
+    assert( nVars <= 6 );
+    assert( (uOn & ~uOnDc) == 0 );
+    if ( uOn == 0 )
+        return 0;
+    if ( uOnDc == ~(word)0 )
+    {
+        pCover[(*pnCubes)++] = 0;
+        return ~(word)0;
+    }
+    assert( nVars > 0 );
+    // find the topmost var
+    for ( Var = nVars-1; Var >= 0; Var-- )
+        if ( Abc_Tt6HasVar( uOn, Var ) || Abc_Tt6HasVar( uOnDc, Var ) )
+             break;
+    assert( Var >= 0 );
+    // cofactor
+    uOn0   = Abc_Tt6Cofactor0( uOn,   Var );
+    uOn1   = Abc_Tt6Cofactor1( uOn  , Var );
+    uOnDc0 = Abc_Tt6Cofactor0( uOnDc, Var );
+    uOnDc1 = Abc_Tt6Cofactor1( uOnDc, Var );
+    // solve for cofactors
+    nBeg0 = *pnCubes; 
+    uRes0 = Abc_Tt6IsopCover( uOn0 & ~uOnDc1, uOnDc0, Var, pCover, pnCubes );
+    nEnd0 = *pnCubes;
+    uRes1 = Abc_Tt6IsopCover( uOn1 & ~uOnDc0, uOnDc1, Var, pCover, pnCubes );
+    nEnd1 = *pnCubes;
+    uRes2 = Abc_Tt6IsopCover( (uOn0 & ~uRes0) | (uOn1 & ~uRes1), uOnDc0 & uOnDc1, Var, pCover, pnCubes );
+    // derive the final truth table
+    uRes2 |= (uRes0 & s_Truths6Neg[Var]) | (uRes1 & s_Truths6[Var]);
+    for ( c = nBeg0; c < nEnd0; c++ )
+        pCover[c] |= (1 << (2*Var+0));
+    for ( c = nEnd0; c < nEnd1; c++ )
+        pCover[c] |= (1 << (2*Var+1));
+    assert( (uOn & ~uRes2) == 0 );
+    assert( (uRes2 & ~uOnDc) == 0 );
+    return uRes2;
+}
+static inline void Abc_Tt7IsopCover( word uOn[2], word uOnDc[2], int nVars, word uRes[2], int * pCover, int * pnCubes )
+{
+    if ( nVars <= 6 || (uOn[0] == uOn[1] && uOnDc[0] == uOnDc[1]) )
+        uRes[0] = uRes[1] = Abc_Tt6IsopCover( uOn[0], uOnDc[0], Abc_MinInt(nVars, 6), pCover, pnCubes );
+    else
+    {
+        word uRes0, uRes1, uRes2;
+        int c, nBeg0, nEnd0, nEnd1;
+        assert( nVars == 7 );
+        // solve for cofactors
+        nBeg0 = *pnCubes; 
+        uRes0 = Abc_Tt6IsopCover( uOn[0] & ~uOnDc[1], uOnDc[0], 6, pCover, pnCubes );   
+        nEnd0 = *pnCubes;
+        uRes1 = Abc_Tt6IsopCover( uOn[1] & ~uOnDc[0], uOnDc[1], 6, pCover, pnCubes );   
+        nEnd1 = *pnCubes;
+        uRes2 = Abc_Tt6IsopCover( (uOn[0] & ~uRes0) | (uOn[1] & ~uRes1), uOnDc[0] & uOnDc[1], 6, pCover, pnCubes );
+        // derive the final truth table
+        uRes[0] = uRes2 | uRes0;
+        uRes[1] = uRes2 | uRes1;
+        for ( c = nBeg0; c < nEnd0; c++ )
+            pCover[c] |= (1 << (2*6+0));
+        for ( c = nEnd0; c < nEnd1; c++ )
+            pCover[c] |= (1 << (2*6+1));
+        assert( (uOn[0] & ~uRes[0]) == 0 && (uOn[1] & ~uRes[1]) == 0 );
+        assert( (uRes[0] & ~uOnDc[0])==0 && (uRes[1] & ~uOnDc[1])==0 );
+    }
+}
+static inline void Abc_Tt8IsopCover( word uOn[4], word uOnDc[4], int nVars, word uRes[4], int * pCover, int * pnCubes )
+{
+    if ( nVars <= 6 )
+        uRes[0] = uRes[1] = uRes[2] = uRes[3] = Abc_Tt6IsopCover( uOn[0], uOnDc[0], nVars, pCover, pnCubes );
+    else if ( nVars == 7 || (uOn[0] == uOn[2] && uOn[1] == uOn[3] && uOnDc[0] == uOnDc[2] && uOnDc[1] == uOnDc[3]) )
+    {
+        Abc_Tt7IsopCover( uOn, uOnDc, 7, uRes, pCover, pnCubes );
+        uRes[2] = uRes[0];
+        uRes[3] = uRes[1];
+    }
+    else 
+    {
+        word uOn0[2], uOn1[2], uOn2[2], uOnDc2[2], uRes0[2], uRes1[2], uRes2[2];
+        int c, nBeg0, nEnd0, nEnd1;
+        assert( nVars == 8 );
+        // cofactor
+        uOn0[0] = uOn[0] & ~uOnDc[2];
+        uOn0[1] = uOn[1] & ~uOnDc[3];
+        uOn1[0] = uOn[2] & ~uOnDc[0];
+        uOn1[1] = uOn[3] & ~uOnDc[1];
+        uOnDc2[0] = uOnDc[0] & uOnDc[2];
+        uOnDc2[1] = uOnDc[1] & uOnDc[3];
+        // solve for cofactors
+        nBeg0 = *pnCubes; 
+        Abc_Tt7IsopCover( uOn0, uOnDc+0, 7, uRes0, pCover, pnCubes );
+        nEnd0 = *pnCubes;
+        Abc_Tt7IsopCover( uOn1, uOnDc+2, 7, uRes1, pCover, pnCubes );
+        nEnd1 = *pnCubes;
+        uOn2[0] = (uOn[0] & ~uRes0[0]) | (uOn[2] & ~uRes1[0]);
+        uOn2[1] = (uOn[1] & ~uRes0[1]) | (uOn[3] & ~uRes1[1]);
+        Abc_Tt7IsopCover( uOn2, uOnDc2, 7, uRes2, pCover, pnCubes );
+        // derive the final truth table
+        uRes[0] = uRes2[0] | uRes0[0];
+        uRes[1] = uRes2[1] | uRes0[1];
+        uRes[2] = uRes2[0] | uRes1[0];
+        uRes[3] = uRes2[1] | uRes1[1];
+        for ( c = nBeg0; c < nEnd0; c++ )
+            pCover[c] |= (1 << (2*7+0));
+        for ( c = nEnd0; c < nEnd1; c++ )
+            pCover[c] |= (1 << (2*7+1));
+        assert( (uOn[0] & ~uRes[0]) == 0 && (uOn[1] & ~uRes[1]) == 0 && (uOn[2] & ~uRes[2]) == 0 && (uOn[3] & ~uRes[3]) == 0 );
+        assert( (uRes[0] & ~uOnDc[0])==0 && (uRes[1] & ~uOnDc[1])==0 && (uRes[2] & ~uOnDc[2])==0 && (uRes[3] & ~uOnDc[3])==0 );
+    }
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Computes CNF for the function.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline int Abc_Tt6Cnf( word t, int nVars, int * pCover )
+{
+    int c, nCubes = 0;
+    Abc_Tt6IsopCover( t, t, nVars, pCover, &nCubes );
+    for ( c = 0; c < nCubes; c++ )
+        pCover[c] |= (1 << (2*nVars+0));
+    Abc_Tt6IsopCover( ~t, ~t, nVars, pCover, &nCubes );
+    for ( ; c < nCubes; c++ )
+        pCover[c] |= (1 << (2*nVars+1));
+    assert( nCubes <= 64 );
+    return nCubes;
+}
+static inline int Abc_Tt8Cnf( word t[4], int nVars, int * pCover )
+{
+    word uRes[4], tc[4] = {~t[0], ~t[1], ~t[2], ~t[3]};
+    int c, nCubes = 0;
+    Abc_Tt8IsopCover( t,  t,  nVars, uRes, pCover, &nCubes );
+    for ( c = 0; c < nCubes; c++ )
+        pCover[c] |= (1 << (2*nVars+0));
+    Abc_Tt8IsopCover( tc, tc, nVars, uRes, pCover, &nCubes );
+    for ( ; c < nCubes; c++ )
+        pCover[c] |= (1 << (2*nVars+1));
+    assert( nCubes <= 256 );
+    return nCubes;
+}
+
+
+/**Function*************************************************************
+
+  Synopsis    [Computes ISOP for 6 variables or less.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline int Abc_Tt6Esop( word t, int nVars, int * pCover )
+{
+    word c0, c1;
+    int Var, r0, r1, r2, Max, i;
+    assert( nVars <= 6 );
+    if ( t == 0 )
+        return 0;
+    if ( t == ~(word)0 )
+    {
+        if ( pCover ) *pCover = 0;
+        return 1;
+    }
+    assert( nVars > 0 );
+    // find the topmost var
+    for ( Var = nVars-1; Var >= 0; Var-- )
+        if ( Abc_Tt6HasVar( t, Var ) )
+             break;
+    assert( Var >= 0 );
+    // cofactor
+    c0 = Abc_Tt6Cofactor0( t, Var );
+    c1 = Abc_Tt6Cofactor1( t, Var );
+    // call recursively
+    r0 = Abc_Tt6Esop( c0,      Var, pCover ? pCover : NULL );
+    r1 = Abc_Tt6Esop( c1,      Var, pCover ? pCover + r0 : NULL );
+    r2 = Abc_Tt6Esop( c0 ^ c1, Var, pCover ? pCover + r0 + r1 : NULL );
+    Max = Abc_MaxInt( r0, Abc_MaxInt(r1, r2) );
+    // add literals
+    if ( pCover )
+    {
+        if ( Max == r0 )
+        {
+            for ( i = 0; i < r1; i++ )
+                pCover[i] = pCover[r0+i];
+            for ( i = 0; i < r2; i++ )
+                pCover[r1+i] = pCover[r0+r1+i] | (1 << (2*Var+0));
+        }
+        else if ( Max == r1 )
+        {
+            for ( i = 0; i < r2; i++ )
+                pCover[r0+i] = pCover[r0+r1+i] | (1 << (2*Var+1));
+        }
+        else
+        {
+            for ( i = 0; i < r0; i++ )
+                pCover[i] |= (1 << (2*Var+0));
+            for ( i = 0; i < r1; i++ )
+                pCover[r0+i] |= (1 << (2*Var+1));
+        }
+    }
+    return r0 + r1 + r2 - Max;
+}
+static inline word Abc_Tt6EsopBuild( int nVars, int * pCover, int nCubes )
+{
+    word p, t = 0; int c, v;
+    for ( c = 0; c < nCubes; c++ )
+    {
+        p = ~(word)0;
+        for ( v = 0; v < nVars; v++ )
+            if ( ((pCover[c] >> (v << 1)) & 3) == 1 )
+                p &= ~s_Truths6[v];
+            else if ( ((pCover[c] >> (v << 1)) & 3) == 2 )
+                p &= s_Truths6[v];
+        t ^= p;
+    }
+    return t;
+}
+static inline int Abc_Tt6EsopVerify( word t, int nVars )
+{
+    int pCover[64];
+    int nCubes = Abc_Tt6Esop( t, nVars, pCover );
+    word t2 = Abc_Tt6EsopBuild( nVars, pCover, nCubes );
+    if ( t != t2 )
+        printf( "Verification failed.\n" );
+    return nCubes;
+}
 
 /**Function*************************************************************
 

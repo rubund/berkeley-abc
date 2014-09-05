@@ -397,7 +397,10 @@ void Jf_ManFree( Jf_Man_t * p )
     if ( p->pPars->fVerbose && p->pDsd )
         Sdm_ManPrintDsdStats( p->pDsd, 0 );
     if ( p->pPars->fVerbose && p->vTtMem )
-        printf( "Unique truth tables = %d. Memory = %.2f MB\n", Vec_MemEntryNum(p->vTtMem), Vec_MemMemory(p->vTtMem) / (1<<20) ); 
+    {
+        printf( "Unique truth tables = %d. Memory = %.2f MB   ", Vec_MemEntryNum(p->vTtMem), Vec_MemMemory(p->vTtMem) / (1<<20) ); 
+        Abc_PrintTime( 1, "Time", Abc_Clock() - p->clkStart );
+    }
     if ( p->pPars->fVeryVerbose && p->pPars->fCutMin && p->pPars->fFuncDsd )
         Jf_ManProfileClasses( p );
     if ( p->pPars->fCoarsen )
@@ -1072,8 +1075,8 @@ int Jf_TtComputeForCut( Jf_Man_t * p, int iFuncLit0, int iFuncLit1, int * pCut0,
     word * pTruth1 = Vec_MemReadEntry(p->vTtMem, Abc_Lit2Var(iFuncLit1));
     Abc_TtCopy( uTruth0, pTruth0, nWords, Abc_LitIsCompl(iFuncLit0) );
     Abc_TtCopy( uTruth1, pTruth1, nWords, Abc_LitIsCompl(iFuncLit1) );
-    Abc_TtStretch( uTruth0, LutSize, pCut0 + 1, Jf_CutSize(pCut0), pCutOut + 1, Jf_CutSize(pCutOut) );
-    Abc_TtStretch( uTruth1, LutSize, pCut1 + 1, Jf_CutSize(pCut1), pCutOut + 1, Jf_CutSize(pCutOut) );
+    Abc_TtExpand( uTruth0, LutSize, pCut0 + 1, Jf_CutSize(pCut0), pCutOut + 1, Jf_CutSize(pCutOut) );
+    Abc_TtExpand( uTruth1, LutSize, pCut1 + 1, Jf_CutSize(pCut1), pCutOut + 1, Jf_CutSize(pCutOut) );
     fCompl         = (int)(uTruth0[0] & uTruth1[0] & 1);
     Abc_TtAnd( uTruth, uTruth0, uTruth1, nWords, fCompl );
     pCutOut[0]     = Abc_TtMinBase( uTruth, pCutOut + 1, pCutOut[0], LutSize );
@@ -1747,23 +1750,30 @@ Gia_Man_t * Jf_ManDeriveCnf( Gia_Man_t * p, int fCnfObjIds )
     pPars->fCnfObjIds = fCnfObjIds;
     return Jf_ManPerformMapping( p, pPars );
 }
-Gia_Man_t * Jf_ManDeriveCnfMiter( Gia_Man_t * p )
+Gia_Man_t * Jf_ManDeriveCnfMiter( Gia_Man_t * p, int fVerbose )
 {
     Jf_Par_t Pars, * pPars = &Pars;
     Jf_ManSetDefaultPars( pPars );
     pPars->fGenCnf = 1;
     pPars->fCnfObjIds = 0;
     pPars->fAddOrCla = 1;
+    pPars->fVerbose = fVerbose;
     return Jf_ManPerformMapping( p, pPars );
 }
-void Jf_ManDumpCnf( Gia_Man_t * p, char * pFileName )
+void Jf_ManDumpCnf( Gia_Man_t * p, char * pFileName, int fVerbose )
 {
+    abctime clk = Abc_Clock();
     Gia_Man_t * pNew;
     Cnf_Dat_t * pCnf;
-    pNew = Jf_ManDeriveCnfMiter( p );
+    pNew = Jf_ManDeriveCnfMiter( p, fVerbose );
     pCnf = (Cnf_Dat_t *)pNew->pData; pNew->pData = NULL;
     Cnf_DataWriteIntoFile( pCnf, pFileName, 0, NULL, NULL );
     Gia_ManStop( pNew );
+//    if ( fVerbose )
+    {
+        printf( "CNF stats: Vars = %6d. Clauses = %7d. Literals = %8d. ", pCnf->nVars, pCnf->nClauses, pCnf->nLiterals );
+        Abc_PrintTime( 1, "Time", Abc_Clock() - clk );
+    }
     Cnf_DataFree(pCnf);
 }
 

@@ -308,16 +308,67 @@ int Gia_ManComputeOverlap( Gia_Man_t * p )
   SeeAlso     []
 
 ***********************************************************************/
+void Gia_ManPrintGetMuxFanins( Gia_Man_t * p, Gia_Obj_t * pObj, int * pFanins )
+{
+    Gia_Obj_t * pData0, * pData1;
+    Gia_Obj_t * pCtrl = Gia_ObjRecognizeMux( pObj, &pData1, &pData0 );
+    pFanins[0] = Gia_ObjId(p, Gia_Regular(pCtrl));
+    pFanins[1] = Gia_ObjId(p, Gia_Regular(pData1));
+    pFanins[2] = Gia_ObjId(p, Gia_Regular(pData0));
+}
+int Gia_ManCountDupLut6( Gia_Man_t * p )
+{
+    int i, nCountDup = 0, nCountPis = 0, nCountMux = 0;
+    Gia_ManCleanMark01( p );
+    Gia_ManForEachLut( p, i )
+        if ( Gia_ObjLutSize(p, i) == 3 && Gia_ObjLutIsMux(p, i) )
+        {
+            Gia_Obj_t * pFanin;
+            int pFanins[3];
+            Gia_ManPrintGetMuxFanins( p, Gia_ManObj(p, i), pFanins );
+            Gia_ManObj(p, i)->fMark1 = 1;
+
+            pFanin = Gia_ManObj(p, pFanins[1]);
+            nCountPis += Gia_ObjIsCi(pFanin);
+            nCountDup += pFanin->fMark0;
+            nCountMux += pFanin->fMark1;
+            pFanin->fMark0 = 1;
+
+            pFanin = Gia_ManObj(p, pFanins[2]);
+            nCountPis += Gia_ObjIsCi(pFanin);
+            nCountDup += pFanin->fMark0;
+            nCountMux += pFanin->fMark1;
+            pFanin->fMark0 = 1;
+        }
+    Gia_ManCleanMark01( p );
+    if ( nCountDup + nCountPis + nCountMux )
+        printf( "Dup fanins = %d.  CI fanins = %d.  MUX fanins = %d.  Total = %d.  (%.2f %%)\n", 
+            nCountDup, nCountPis, nCountMux, nCountDup + nCountPis, 100.0 * (nCountDup + nCountPis + nCountMux) / Gia_ManLutNum(p) );
+    return nCountDup + nCountPis;
+}
+
 void Gia_ManPrintMappingStats( Gia_Man_t * p, char * pDumpFile )
 {
     Gia_Obj_t * pObj;
     int * pLevels;
-    int i, k, iFan, nLutSize = 0, nLuts = 0, nFanins = 0, LevelMax = 0, Ave = 0;
+    int i, k, iFan, nLutSize = 0, nLuts = 0, nFanins = 0, LevelMax = 0, Ave = 0, nMuxF7 = 0;
     if ( !Gia_ManHasMapping(p) )
         return;
     pLevels = ABC_CALLOC( int, Gia_ManObjNum(p) );
     Gia_ManForEachLut( p, i )
     {
+        if ( Gia_ObjLutSize(p, i) == 3 && Gia_ObjLutIsMux(p, i) )
+        {
+            int pFanins[3];
+            Gia_ManPrintGetMuxFanins( p, Gia_ManObj(p, i), pFanins );
+            pLevels[i] = Abc_MaxInt( pLevels[i], pLevels[pFanins[0]]+1 );
+            pLevels[i] = Abc_MaxInt( pLevels[i], pLevels[pFanins[1]] );
+            pLevels[i] = Abc_MaxInt( pLevels[i], pLevels[pFanins[2]] );
+            LevelMax = Abc_MaxInt( LevelMax, pLevels[i] );
+            nMuxF7++;
+            nFanins++;
+            continue;
+        }
         nLuts++;
         nFanins += Gia_ObjLutSize(p, i);
         nLutSize = Abc_MaxInt( nLutSize, Gia_ObjLutSize(p, i) );
@@ -336,6 +387,8 @@ void Gia_ManPrintMappingStats( Gia_Man_t * p, char * pDumpFile )
     Abc_Print( 1, "Mapping (K=%d)  :  ", nLutSize );
     SetConsoleTextAttribute( hConsole, 14 ); // yellow
     Abc_Print( 1, "lut =%7d  ",  nLuts );
+    if ( nMuxF7 )
+    Abc_Print( 1, "mux =%7d  ",  nMuxF7 );
     SetConsoleTextAttribute( hConsole, 10 ); // green
     Abc_Print( 1, "edge =%8d  ", nFanins );
     SetConsoleTextAttribute( hConsole, 12 ); // red
@@ -357,6 +410,8 @@ void Gia_ManPrintMappingStats( Gia_Man_t * p, char * pDumpFile )
     Abc_Print( 1, "\n" );
 #endif
 
+    if ( nMuxF7 )
+        Gia_ManCountDupLut6( p );
 
     if ( pDumpFile )
     {
@@ -597,8 +652,8 @@ If_Man_t * Gia_ManToIf( Gia_Man_t * p, If_Par_t * pPars )
     // create levels with choices
     Gia_ManChoiceLevel( p );
     // mark representative nodes
-    if ( p->pSibls )
-    Gia_ManMarkFanoutDrivers( p );
+    if ( Gia_ManHasChoices(p) )
+        Gia_ManMarkFanoutDrivers( p );
     // start the mapping manager and set its parameters
     pIfMan = If_ManStart( pPars );
     pIfMan->pName = Abc_UtilStrsav( Gia_ManName(p) );
@@ -640,8 +695,8 @@ If_Man_t * Gia_ManToIf( Gia_Man_t * p, If_Par_t * pPars )
         }
 //        assert( If_ObjLevel(pIfObj) == Gia_ObjLevel(pNode) );
     }
-    if ( p->pSibls )
-    Gia_ManCleanMark0( p );
+    if ( Gia_ManHasChoices(p) )
+        Gia_ManCleanMark0( p );
     return pIfMan;
 }
 
@@ -714,6 +769,18 @@ int Gia_ManBuildFromMini( Gia_Man_t * pNew, If_Man_t * pIfMan, If_Cut_t * pCut, 
   SeeAlso     []
 
 ***********************************************************************/
+int Gia_ManFromIfAig_rec( Gia_Man_t * pNew, If_Man_t * pIfMan, If_Obj_t * pIfObj )
+{
+    int iLit0, iLit1;
+    if ( pIfObj->iCopy )
+        return pIfObj->iCopy;
+    iLit0 = Gia_ManFromIfAig_rec( pNew, pIfMan, pIfObj->pFanin0 );
+    iLit1 = Gia_ManFromIfAig_rec( pNew, pIfMan, pIfObj->pFanin1 );
+    iLit0 = Abc_LitNotCond( iLit0, pIfObj->fCompl0 );
+    iLit1 = Abc_LitNotCond( iLit1, pIfObj->fCompl1 );
+    pIfObj->iCopy = Gia_ManHashAnd( pNew, iLit0, iLit1 );
+    return pIfObj->iCopy;
+}
 Gia_Man_t * Gia_ManFromIfAig( If_Man_t * pIfMan )
 {
     int fHash = 0;
@@ -731,7 +798,8 @@ Gia_Man_t * Gia_ManFromIfAig( If_Man_t * pIfMan )
     // iterate through nodes used in the mapping
     vAig = Vec_IntAlloc( 1 << 16 );
     vLeaves = Vec_IntAlloc( 16 );
-    If_ManCleanCutData( pIfMan );
+//    If_ManForEachObj( pIfMan, pIfObj, i )
+//        pIfObj->iCopy = 0;
     If_ManForEachObj( pIfMan, pIfObj, i )
     {
         if ( pIfObj->nRefs == 0 && !If_ObjIsTerm(pIfObj) )
@@ -739,6 +807,12 @@ Gia_Man_t * Gia_ManFromIfAig( If_Man_t * pIfMan )
         if ( If_ObjIsAnd(pIfObj) )
         {
             pCutBest = If_ObjCutBest( pIfObj );
+            // if the cut does not offer delay improvement
+//            if ( (int)pIfObj->Level <= (int)pCutBest->Delay )
+//            {
+//                Gia_ManFromIfAig_rec( pNew, pIfMan, pIfObj );
+//                continue;
+//            }
             // collect leaves of the best cut
             Vec_IntClear( vLeaves );
             If_CutForEachLeaf( pIfMan, pCutBest, pIfLeaf, k )
@@ -1505,22 +1579,10 @@ void Gia_ManTransferMapping( Gia_Man_t * pGia, Gia_Man_t * p )
         Vec_IntPush( p->vMapping, Gia_ObjLutSize(pGia, i) );
         Gia_LutForEachFanin( pGia, i, iFan, k )
             Vec_IntPush( p->vMapping, Abc_Lit2Var(Gia_ObjValue(Gia_ManObj(pGia, iFan))) );
-        Vec_IntPush( p->vMapping, Gia_ObjId(p, pObj) );
+        Vec_IntPush( p->vMapping, Gia_ObjLutIsMux(pGia, i) ? -Gia_ObjId(p, pObj) : Gia_ObjId(p, pObj) );
     }
     Gia_ManMappingVerify( p );
 }
-
-/**Function*************************************************************
-
-  Synopsis    [Transfers packing from hie GIA to normalized GIA.]
-
-  Description [Hie GIA (pGia) points to normalized GIA (p).]
-               
-  SideEffects []
-
-  SeeAlso     []
-
-***********************************************************************/
 void Gia_ManTransferPacking( Gia_Man_t * pGia, Gia_Man_t * p )
 {
     Vec_Int_t * vPackingNew;
@@ -1554,6 +1616,12 @@ void Gia_ManTransferPacking( Gia_Man_t * pGia, Gia_Man_t * p )
     // attach packing info
     assert( p->vPacking == NULL );
     p->vPacking = vPackingNew;
+}
+void Gia_ManTransferTiming( Gia_Man_t * pGia, Gia_Man_t * p )
+{
+    p->pManTime   = pGia->pManTime;   pGia->pManTime   = NULL;
+    p->pAigExtra  = pGia->pAigExtra;  pGia->pAigExtra  = NULL;
+    p->nAnd2Delay = pGia->nAnd2Delay; pGia->nAnd2Delay = 0;
 }
 
 
@@ -1625,7 +1693,7 @@ Gia_Man_t * Gia_ManPerformMapping( Gia_Man_t * p, void * pp, int fNormalized )
             Abc_Print( 0, "Switching activity computation for designs with boxes is disabled.\n" );
     }
     if ( p->pManTime )
-        pIfMan->pManTim = Tim_ManDup( (Tim_Man_t *)p->pManTime, 0 );
+        pIfMan->pManTim = Tim_ManDup( (Tim_Man_t *)p->pManTime, pPars->fDelayOpt || pPars->fDelayOptLut || pPars->fDsdBalance || pPars->fUserRecLib );
     if ( !If_ManPerformMapping( pIfMan ) )
     {
         If_ManStop( pIfMan );
@@ -1644,18 +1712,72 @@ Gia_Man_t * Gia_ManPerformMapping( Gia_Man_t * p, void * pp, int fNormalized )
     pNew->pSpec = Abc_UtilStrsav( p->pSpec );
     Gia_ManSetRegNum( pNew, Gia_ManRegNum(p) );
     // return the original (unmodified by the mapper) timing manager
-    pNew->pManTime   = p->pManTime;   p->pManTime   = NULL;
-    pNew->pAigExtra  = p->pAigExtra;  p->pAigExtra  = NULL;
-    pNew->nAnd2Delay = p->nAnd2Delay; p->nAnd2Delay = 0;
+    Gia_ManTransferTiming( p, pNew );
     Gia_ManStop( p );
     // normalize and transfer mapping
     pNew = Gia_ManDupNormalize( p = pNew );
     Gia_ManTransferMapping( p, pNew );
     Gia_ManTransferPacking( p, pNew );
-    pNew->pManTime   = p->pManTime;   p->pManTime   = NULL;
-    pNew->pAigExtra  = p->pAigExtra;  p->pAigExtra  = NULL;
-    pNew->nAnd2Delay = p->nAnd2Delay; p->nAnd2Delay = 0;
+    Gia_ManTransferTiming( p, pNew );
     Gia_ManStop( p );
+    return pNew;
+}
+Gia_Man_t * Gia_ManPerformSopBalance( Gia_Man_t * p, int nCutNum, int nRelaxRatio, int fVerbose )
+{
+    Gia_Man_t * pNew;
+    If_Man_t * pIfMan;
+    If_Par_t Pars, * pPars = &Pars;
+    If_ManSetDefaultPars( pPars );
+    pPars->nCutsMax    = nCutNum;
+    pPars->nRelaxRatio = nRelaxRatio;
+    pPars->fVerbose    = fVerbose;
+    pPars->nLutSize    = 6;
+    pPars->fDelayOpt   = 1;
+    pPars->fCutMin     = 1;
+    pPars->fTruth      = 1;
+    pPars->fExpRed     = 0;
+    // perform mapping
+    pIfMan = Gia_ManToIf( p, pPars );
+    If_ManPerformMapping( pIfMan );
+    pNew = Gia_ManFromIfAig( pIfMan );
+    If_ManStop( pIfMan );
+    // transfer name
+    assert( pNew->pName == NULL );
+    pNew->pName = Abc_UtilStrsav( p->pName );
+    pNew->pSpec = Abc_UtilStrsav( p->pSpec );
+    Gia_ManSetRegNum( pNew, Gia_ManRegNum(p) );
+    return pNew;
+}
+Gia_Man_t * Gia_ManPerformDsdBalance( Gia_Man_t * p, int nCutNum, int nRelaxRatio, int fVerbose )
+{
+    Gia_Man_t * pNew;
+    If_Man_t * pIfMan;
+    If_Par_t Pars, * pPars = &Pars;
+    If_ManSetDefaultPars( pPars );
+    pPars->nCutsMax    = nCutNum;
+    pPars->nRelaxRatio = nRelaxRatio;
+    pPars->fVerbose    = fVerbose;
+    pPars->nLutSize    = 6;
+    pPars->fDsdBalance = 1;
+    pPars->fUseDsd     = 1;
+    pPars->fCutMin     = 1;
+    pPars->fTruth      = 1;
+    pPars->fExpRed     = 0;
+    if ( Abc_FrameReadManDsd() == NULL )
+        Abc_FrameSetManDsd( If_DsdManAlloc(pPars->nLutSize, 0) );
+    // perform mapping
+    pIfMan = Gia_ManToIf( p, pPars );
+    pIfMan->pIfDsdMan = (If_DsdMan_t *)Abc_FrameReadManDsd();
+    if ( pPars->fDsdBalance )
+        If_DsdManAllocIsops( pIfMan->pIfDsdMan, pPars->nLutSize );
+    If_ManPerformMapping( pIfMan );
+    pNew = Gia_ManFromIfAig( pIfMan );
+    If_ManStop( pIfMan );
+    // transfer name
+    assert( pNew->pName == NULL );
+    pNew->pName = Abc_UtilStrsav( p->pName );
+    pNew->pSpec = Abc_UtilStrsav( p->pSpec );
+    Gia_ManSetRegNum( pNew, Gia_ManRegNum(p) );
     return pNew;
 }
 

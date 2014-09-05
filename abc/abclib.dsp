@@ -734,6 +734,14 @@ SOURCE=.\src\base\test\test.c
 
 # PROP Default_Filter ""
 # End Group
+# Begin Group "pcm"
+
+# PROP Default_Filter ""
+# End Group
+# Begin Group "ply"
+
+# PROP Default_Filter ""
+# End Group
 # End Group
 # Begin Group "bdd"
 
@@ -2339,6 +2347,10 @@ SOURCE=.\src\map\if\ifCut.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\src\map\if\ifData2.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\map\if\ifDec07.c
 # End Source File
 # Begin Source File
@@ -2380,6 +2392,10 @@ SOURCE=.\src\map\if\ifMan.c
 # Begin Source File
 
 SOURCE=.\src\map\if\ifMap.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\map\if\ifMatch2.c
 # End Source File
 # Begin Source File
 
@@ -3691,6 +3707,10 @@ SOURCE=.\src\aig\gia\giaBalance.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\src\aig\gia\giaBalance2.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\aig\gia\giaBidec.c
 # End Source File
 # Begin Source File
@@ -3700,6 +3720,10 @@ SOURCE=.\src\aig\gia\giaCCof.c
 # Begin Source File
 
 SOURCE=.\src\aig\gia\giaCex.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\aig\gia\giaClp.c
 # End Source File
 # Begin Source File
 
@@ -3775,6 +3799,10 @@ SOURCE=.\src\aig\gia\giaFx.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\src\aig\gia\giaGig.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\aig\gia\giaGlitch.c
 # End Source File
 # Begin Source File
@@ -3811,11 +3839,19 @@ SOURCE=.\src\aig\gia\giaKf.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\src\aig\gia\giaLf.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\aig\gia\giaMan.c
 # End Source File
 # Begin Source File
 
 SOURCE=.\src\aig\gia\giaMem.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\aig\gia\giaMf.c
 # End Source File
 # Begin Source File
 
@@ -3828,6 +3864,10 @@ SOURCE=.\src\aig\gia\giaMini.c
 # Begin Source File
 
 SOURCE=.\src\aig\gia\giaMuxes.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\aig\gia\giaNf.c
 # End Source File
 # Begin Source File
 
@@ -3867,6 +3907,10 @@ SOURCE=.\src\aig\gia\giaSim2.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\src\aig\gia\giaSopb.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\aig\gia\giaSort.c
 # End Source File
 # Begin Source File
@@ -3876,6 +3920,10 @@ SOURCE=.\src\aig\gia\giaSpeedup.c
 # Begin Source File
 
 SOURCE=.\src\aig\gia\giaStg.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\aig\gia\giaStr.c
 # End Source File
 # Begin Source File
 

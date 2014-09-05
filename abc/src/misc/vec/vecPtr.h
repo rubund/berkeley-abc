@@ -558,14 +558,18 @@ static inline void Vec_PtrClear( Vec_Ptr_t * p )
   SeeAlso     []
 
 ***********************************************************************/
-static inline void Vec_PtrFreeFree( Vec_Ptr_t * p )
+static inline void Vec_PtrFreeData( Vec_Ptr_t * p )
 {
-    void * pTemp;
-    int i;
+    void * pTemp; int i;
     if ( p == NULL ) return;
     Vec_PtrForEachEntry( void *, p, pTemp, i )
         if ( pTemp != (void *)(ABC_PTRINT_T)1 && pTemp != (void *)(ABC_PTRINT_T)2 )
             ABC_FREE( pTemp );
+}
+static inline void Vec_PtrFreeFree( Vec_Ptr_t * p )
+{
+    if ( p == NULL ) return;
+    Vec_PtrFreeData( p );
     Vec_PtrFree( p );
 }
 
@@ -878,6 +882,31 @@ static void Vec_PtrUniqify( Vec_Ptr_t * p, int (*Vec_PtrSortCompare)() )
         if ( p->pArray[i] != p->pArray[i-1] )
             p->pArray[k++] = p->pArray[i];
     p->nSize = k;
+}
+static void Vec_PtrUniqify2( Vec_Ptr_t * p, int (*Vec_PtrSortCompare)(), void (*Vec_PtrObjFree)(), Vec_Int_t * vCounts )
+{
+    int i, k;
+    if ( vCounts )
+        Vec_IntFill( vCounts, 1, 1 );
+    if ( p->nSize < 2 )
+        return;
+    Vec_PtrSort( p, Vec_PtrSortCompare );
+    for ( i = k = 1; i < p->nSize; i++ )
+        if ( Vec_PtrSortCompare(p->pArray+i, p->pArray+k-1) != 0 )
+        {
+            p->pArray[k++] = p->pArray[i];
+            if ( vCounts )
+                Vec_IntPush( vCounts, 1 );
+        }
+        else 
+        {
+            if ( Vec_PtrObjFree )
+                Vec_PtrObjFree( p->pArray[i] );
+            if ( vCounts )
+                Vec_IntAddToEntry( vCounts, Vec_IntSize(vCounts)-1, 1 );
+        }
+    p->nSize = k;
+    assert( vCounts == NULL || Vec_IntSize(vCounts) == Vec_PtrSize(p) );
 }
 
 

@@ -80,7 +80,7 @@ void Gia_ManSetDefaultParamsSwi( Gia_ParSwi_t * p )
     p->nWords        =  10;  // the number of machine words of simulatation data 
     p->nIters        =  48;  // the number of all timeframes to simulate
     p->nPref         =  16;  // the number of first timeframes to skip when computing switching
-    p->nRandPiFactor =   2;  // primary input transition probability (-1=3/8; 0=1/2; 1=1/4; 2=1/8, etc)
+    p->nRandPiFactor =   0;  // primary input transition probability (-1=3/8; 0=1/2; 1=1/4; 2=1/8, etc)
     p->fProbOne      =   0;  // compute probability of signal being one (if 0, compute probability of switching)
     p->fProbTrans    =   1;  // compute signal transition probability (if 0, compute transition probability using probability of being one)
     p->fVerbose      =   0;  // enables verbose output
@@ -740,6 +740,7 @@ float Gia_ManEvaluateSwitching( Gia_Man_t * p )
   SeeAlso     []
 
 ***********************************************************************/
+/*
 float Gia_ManComputeSwitching( Gia_Man_t * p, int nFrames, int nPref, int fProbOne )
 {
     Gia_Man_t * pDfs;
@@ -758,6 +759,7 @@ float Gia_ManComputeSwitching( Gia_Man_t * p, int nFrames, int nPref, int fProbO
     // perform the computation of switching activity
     vSwitching = Gia_ManComputeSwitchProbs( pDfs, nFrames, nPref, fProbOne );
     // transfer the computed result to the original AIG
+    ABC_FREE( p->pSwitching );
     p->pSwitching = ABC_CALLOC( unsigned char, Gia_ManObjNum(p) );
     pSwitching = (float *)vSwitching->pArray;
     Gia_ManForEachObj( p, pObj, i )
@@ -774,6 +776,48 @@ float Gia_ManComputeSwitching( Gia_Man_t * p, int nFrames, int nPref, int fProbO
     Vec_IntFree( vSwitching );
     Gia_ManStop( pDfs );
     return SwitchTotal;
+}
+*/
+float Gia_ManComputeSwitching( Gia_Man_t * p, int nFrames, int nPref, int fProbOne )
+{
+    Vec_Int_t * vSwitching = Gia_ManComputeSwitchProbs( p, nFrames, nPref, fProbOne );
+    float * pSwi = (float *)Vec_IntArray(vSwitching), SwiTotal = 0;
+    Gia_Obj_t * pObj;
+    int i, k, iFan;
+    if ( Gia_ManHasMapping(p) )
+    {
+        Gia_ManForEachLut( p, i )
+            Gia_LutForEachFanin( p, i, iFan, k )
+                SwiTotal += pSwi[iFan];
+    }
+    else
+    {
+        Gia_ManForEachAnd( p, pObj, i )
+            SwiTotal += pSwi[Gia_ObjFaninId0(pObj, i)] + pSwi[Gia_ObjFaninId1(pObj, i)];
+    }
+    Vec_IntFree( vSwitching );
+    return SwiTotal;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Determine probability of being 1 at the outputs.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Vec_Flt_t * Gia_ManPrintOutputProb( Gia_Man_t * p )
+{
+    Vec_Flt_t * vSimData;
+    Gia_Man_t * pDfs = Gia_ManDup( p );
+    assert( Gia_ManObjNum(pDfs) == Gia_ManObjNum(p) );
+    vSimData = (Vec_Flt_t *)Gia_ManComputeSwitchProbs( pDfs, (Gia_ManRegNum(p) ? 16 : 1), 0, 1 );
+    Gia_ManStop( pDfs );
+    return vSimData;
 }
 
 ////////////////////////////////////////////////////////////////////////

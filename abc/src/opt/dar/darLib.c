@@ -593,6 +593,8 @@ Dar_Lib_t * Dar_LibRead()
 void Dar_LibStart()
 {
 //    abctime clk = Abc_Clock();
+    if ( s_DarLib != NULL )
+        return;
     assert( s_DarLib == NULL );
     s_DarLib = Dar_LibRead();
 //    printf( "The 4-input library started with %d nodes and %d subgraphs. ", s_DarLib->nObjs - 4, s_DarLib->nSubgrTotal );
@@ -1288,7 +1290,7 @@ int Dar2_LibBuildBest_rec( Gia_Man_t * p, Dar_LibObj_t * pObj )
     pNode = Gia_ManObj( p, Abc_Lit2Var(pData->iGunc) );
     if ( Gia_ObjIsAnd( pNode ) )
         Gia_ObjSetAndLevel( p, pNode );
-    Gia_ObjSetPhase( pNode );
+    Gia_ObjSetPhase( p, pNode );
     return pData->iGunc;
 }
 

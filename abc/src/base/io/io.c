@@ -45,6 +45,7 @@ static int IoCommandReadPla     ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandReadTruth   ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandReadVerilog ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandReadStatus  ( Abc_Frame_t * pAbc, int argc, char **argv );
+static int IoCommandReadGig     ( Abc_Frame_t * pAbc, int argc, char **argv );
 
 static int IoCommandWrite       ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWriteHie    ( Abc_Frame_t * pAbc, int argc, char **argv );
@@ -108,6 +109,7 @@ void Io_Init( Abc_Frame_t * pAbc )
     Cmd_CommandAdd( pAbc, "I/O", "read_truth",    IoCommandReadTruth,    1 );
     Cmd_CommandAdd( pAbc, "I/O", "read_verilog",  IoCommandReadVerilog,  1 );
     Cmd_CommandAdd( pAbc, "I/O", "read_status",   IoCommandReadStatus,   0 );
+    Cmd_CommandAdd( pAbc, "I/O", "&read_gig",     IoCommandReadGig,      0 );
 
     Cmd_CommandAdd( pAbc, "I/O", "write",         IoCommandWrite,        0 );
     Cmd_CommandAdd( pAbc, "I/O", "write_hie",     IoCommandWriteHie,     0 );
@@ -1132,6 +1134,63 @@ usage:
     return 1;
 }
 
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int IoCommandReadGig( Abc_Frame_t * pAbc, int argc, char ** argv )
+{
+    extern Gia_Man_t * Gia_ManReadGig( char * pFileName );
+    Gia_Man_t * pAig;
+    char * pFileName;
+    FILE * pFile;
+    int c;
+
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "h" ) ) != EOF )
+    {
+        switch ( c )
+        {
+            case 'h':
+                goto usage;
+            default:
+                goto usage;
+        }
+    }
+    if ( argc != globalUtilOptind + 1 )
+    {
+        goto usage;
+    }
+
+    // get the input file name
+    pFileName = argv[globalUtilOptind];
+    if ( (pFile = fopen( pFileName, "r" )) == NULL )
+    {
+        fprintf( pAbc->Err, "Cannot open input file \"%s\". \n", pFileName );
+        return 1;
+    }
+    fclose( pFile );
+
+    // set the new network
+    pAig = Gia_ManReadGig( pFileName );
+    //Abc_FrameUpdateGia( pAbc, pAig );
+    return 0;
+
+usage:
+    fprintf( pAbc->Err, "usage: &read_gig [-h] <file>\n" );
+    fprintf( pAbc->Err, "\t         reads design in GIG format\n" );
+    fprintf( pAbc->Err, "\t-h     : prints the command summary\n" );
+    fprintf( pAbc->Err, "\tfile   : the name of a file to read\n" );
+    return 1;
+}
+
 
 /**Function*************************************************************
 
@@ -1855,7 +1914,7 @@ int IoCommandWriteCnf( Abc_Frame_t * pAbc, int argc, char **argv )
 
 usage:
     fprintf( pAbc->Err, "usage: write_cnf [-nfpcvh] <file>\n" );
-    fprintf( pAbc->Err, "\t         writes the miter cone into a CNF file\n" );
+    fprintf( pAbc->Err, "\t         generates CNF for the miter (see also \"&write_cnf\")\n" );
     fprintf( pAbc->Err, "\t-n     : toggle using new algorithm [default = %s]\n", fNewAlgo? "yes" : "no" );
     fprintf( pAbc->Err, "\t-f     : toggle using fast algorithm [default = %s]\n", fFastAlgo? "yes" : "no" );
     fprintf( pAbc->Err, "\t-p     : toggle using all primes to enhance implicativity [default = %s]\n", fAllPrimes? "yes" : "no" );
@@ -1879,15 +1938,30 @@ usage:
 ***********************************************************************/
 int IoCommandWriteCnf2( Abc_Frame_t * pAbc, int argc, char **argv )
 {
-    extern void Jf_ManDumpCnf( Gia_Man_t * p, char * pFileName );
+    extern void Jf_ManDumpCnf( Gia_Man_t * p, char * pFileName, int fVerbose );
+    extern void Mf_ManDumpCnf( Gia_Man_t * p, char * pFileName, int nLutSize, int fVerbose );
     FILE * pFile;
     char * pFileName;
+    int nLutSize = 6;
+    int fNewAlgo = 1;
     int c, fVerbose = 0;
     Extra_UtilGetoptReset();
-    while ( ( c = Extra_UtilGetopt( argc, argv, "vh" ) ) != EOF )
+    while ( ( c = Extra_UtilGetopt( argc, argv, "Kavh" ) ) != EOF )
     {
         switch ( c )
         {
+            case 'K':
+                if ( globalUtilOptind >= argc )
+                {
+                    Abc_Print( -1, "Command line switch \"-K\" should be followed by an integer.\n" );
+                    goto usage;
+                }
+                nLutSize = atoi(argv[globalUtilOptind]);
+                globalUtilOptind++;
+                break;
+            case 'a':
+                fNewAlgo ^= 1;
+                break;
             case 'v':
                 fVerbose ^= 1;
                 break;
@@ -1907,7 +1981,12 @@ int IoCommandWriteCnf2( Abc_Frame_t * pAbc, int argc, char **argv )
         Abc_Print( -1, "IoCommandWriteCnf2(): Works only for combinational miters.\n" );
         return 0;
     }
-    if ( !Sdm_ManCanRead() )
+    if ( nLutSize < 3 || nLutSize > 8 )
+    {
+        Abc_Print( -1, "IoCommandWriteCnf2(): Invalid LUT size (%d).\n", nLutSize );
+        return 0;
+    }
+    if ( !fNewAlgo && !Sdm_ManCanRead() )
     {
         Abc_Print( -1, "IoCommandWriteCnf2(): Cannot input precomputed DSD information.\n" );
         return 0;
@@ -1922,15 +2001,21 @@ int IoCommandWriteCnf2( Abc_Frame_t * pAbc, int argc, char **argv )
         printf( "Cannot open file \"%s\" for writing.\n", pFileName );
         return 0;
     }
-    Jf_ManDumpCnf( pAbc->pGia, pFileName );
+    fclose( pFile );
+    if ( fNewAlgo )
+        Mf_ManDumpCnf( pAbc->pGia, pFileName, nLutSize, fVerbose );
+    else
+        Jf_ManDumpCnf( pAbc->pGia, pFileName, fVerbose );
     return 0;
 
 usage:
-    fprintf( pAbc->Err, "usage: &write_cnf [-vh] <file>\n" );
-    fprintf( pAbc->Err, "\t         writes CNF produced by new DSD-based generator\n" );
-    fprintf( pAbc->Err, "\t-v     : toggle printing verbose information [default = %s]\n", fVerbose? "yes" : "no" );
-    fprintf( pAbc->Err, "\t-h     : print the help massage\n" );
-    fprintf( pAbc->Err, "\tfile   : the name of the file to write\n" );
+    fprintf( pAbc->Err, "usage: &write_cnf [-Kavh] <file>\n" );
+    fprintf( pAbc->Err, "\t           writes CNF produced by a new generator\n" );
+    fprintf( pAbc->Err, "\t-K <num> : the LUT size (3 <= num <= 8) [default = %d]\n", nLutSize );
+    fprintf( pAbc->Err, "\t-a       : toggle using new algorithm [default = %s]\n", fNewAlgo? "yes" : "no" );
+    fprintf( pAbc->Err, "\t-v       : toggle printing verbose information [default = %s]\n", fVerbose? "yes" : "no" );
+    fprintf( pAbc->Err, "\t-h       : print the help massage\n" );
+    fprintf( pAbc->Err, "\tfile     : the name of the file to write\n" );
     return 1;
 }
 

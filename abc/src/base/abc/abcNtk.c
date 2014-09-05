@@ -69,6 +69,8 @@ Abc_Ntk_t * Abc_NtkAlloc( Abc_NtkType_t Type, Abc_NtkFunc_t Func, int fUseMemMan
     // get ready to assign the first Obj ID
     pNtk->nTravIds    = 1;
     // start the functionality manager
+    if ( !Abc_NtkIsStrash(pNtk) )
+        Vec_PtrPush( pNtk->vObjs, NULL );
     if ( Abc_NtkIsStrash(pNtk) )
         pNtk->pManFunc = Abc_AigAlloc( pNtk );
     else if ( Abc_NtkHasSop(pNtk) || Abc_NtkHasBlifMv(pNtk) )

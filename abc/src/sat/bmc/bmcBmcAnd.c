@@ -786,7 +786,7 @@ int Gia_ManBmcPerform_old_cnf( Gia_Man_t * pGia, Bmc_AndPar_t * pPars )
     if ( pPars->fUseSynth )
     {
         Gia_Man_t * pTemp = p->pFrames;
-        p->pFrames = Gia_ManAigSyn2( pTemp, pPars->fVerbose, 0 );
+        p->pFrames = Gia_ManAigSyn2( pTemp, 1, 0, 0, 0, 0, pPars->fVerbose, 0 );
         Gia_ManStop( pTemp );
     }
     else if ( pPars->fVerbose )
@@ -970,7 +970,7 @@ int Gia_ManBmcPerformInt( Gia_Man_t * pGia, Bmc_AndPar_t * pPars )
     }
     if ( pPars->fUseSynth )
     {
-        p->pFrames = Gia_ManAigSyn2( pTemp = p->pFrames, pPars->fVerbose, 0 );  Gia_ManStop( pTemp );
+        p->pFrames = Gia_ManAigSyn2( pTemp = p->pFrames, 1, 0, 0, 0, 0, pPars->fVerbose, 0 );  Gia_ManStop( pTemp );
     }
     else if ( pPars->fVerbose )
         Gia_ManPrintStats( p->pFrames, NULL );
@@ -985,6 +985,8 @@ int Gia_ManBmcPerformInt( Gia_Man_t * pGia, Bmc_AndPar_t * pPars )
     {
         p->pFrames = Jf_ManDeriveCnf( pTemp = p->pFrames, 1 );  Gia_ManStop( pTemp );
         p->pCnf = (Cnf_Dat_t *)p->pFrames->pData; p->pFrames->pData = NULL;
+//        extern Cnf_Dat_t * Mf_ManGenerateCnf( Gia_Man_t * pGia, int nLutSize, int fCnfObjIds, int fAddOrCla, int fVerbose );
+//        p->pCnf = Mf_ManGenerateCnf( p->pFrames, 6, 1, 0, 0 );
     }
     Vec_IntFillExtra( p->vId2Var, Gia_ManObjNum(p->pFrames), 0 );
     // create clauses for constant node

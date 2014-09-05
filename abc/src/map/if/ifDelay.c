@@ -20,6 +20,7 @@
 
 #include "if.h"
 #include "ifCount.h"
+#include "bool/kit/kit.h"
 
 ABC_NAMESPACE_IMPL_START
 
@@ -78,16 +79,16 @@ int If_CutDelaySop( If_Man_t * p, If_Cut_t * pCut )
     if ( Vec_IntSize(vCover) == 0 )
         return -1;
     // mark the output as complemented
-//    vAnds = If_CutDelaySopAnds( p, pCut, p->vCover, RetValue ^ pCut->fCompl );
-    if ( Vec_IntSize(p->vCover) > p->pPars->nGateSize )
-        return ABC_INFINITY;
+//    vAnds = If_CutDelaySopAnds( p, pCut, vCover, RetValue ^ pCut->fCompl );
+    if ( Vec_IntSize(vCover) > p->pPars->nGateSize )
+        return -1;
     // set the area cost
     assert( If_CutLeaveNum(pCut) >= 0 && If_CutLeaveNum(pCut) <= 16 );
     // compute the gate delay
-    nLitMax = If_CutMaxCubeSize( p->vCover, If_CutLeaveNum(pCut) );
-    if ( Vec_IntSize(p->vCover) < 2 )
+    nLitMax = If_CutMaxCubeSize( vCover, If_CutLeaveNum(pCut) );
+    if ( Vec_IntSize(vCover) < 2 )
     {
-        pCut->Cost = Vec_IntSize(p->vCover);
+        pCut->Cost = Vec_IntSize(vCover);
         Delay = (int)(GateDelays[If_CutLeaveNum(pCut)] + 0.5);
         DelayMax = 0;
         If_CutForEachLeaf( p, pCut, pLeaf, i )
@@ -95,7 +96,7 @@ int If_CutDelaySop( If_Man_t * p, If_Cut_t * pCut )
     }
     else
     {
-        pCut->Cost = Vec_IntSize(p->vCover) + 1;
+        pCut->Cost = Vec_IntSize(vCover) + 1;
         Delay = (int)(GateDelays[If_CutLeaveNum(pCut)] + GateDelays[nLitMax] + 0.5);
         DelayMax = 0;
         If_CutForEachLeaf( p, pCut, pLeaf, i )
@@ -269,6 +270,7 @@ int If_CutSopBalanceEval( If_Man_t * p, If_Cut_t * pCut, Vec_Int_t * vAig )
     }
     else
     {
+        int fVerbose = 0;
         Vec_Int_t * vCover = Vec_WecEntry( p->vTtIsops[pCut->nLeaves], Abc_Lit2Var(If_CutTruthLit(pCut)) );
         int Delay, Area = 0;
         int i, pTimes[IF_MAX_FUNC_LUTSIZE];
@@ -279,6 +281,34 @@ int If_CutSopBalanceEval( If_Man_t * p, If_Cut_t * pCut, Vec_Int_t * vAig )
             pTimes[i] = (int)If_ObjCutBest(If_CutLeaf(p, pCut, i))->Delay; 
         Delay = If_CutSopBalanceEvalIntInt( vCover, If_CutLeaveNum(pCut), pTimes, vAig, Abc_LitIsCompl(If_CutTruthLit(pCut)) ^ pCut->fCompl, &Area );
         pCut->Cost = Area;
+        if ( fVerbose )
+        {
+            int Max = 0, Two = 0;
+            for ( i = 0; i < If_CutLeaveNum(pCut); i++ )
+                Max = Abc_MaxInt( Max, pTimes[i] );
+            for ( i = 0; i < If_CutLeaveNum(pCut); i++ )
+                if ( pTimes[i] != Max )
+                    Two = Abc_MaxInt( Two, pTimes[i] );
+            if ( Two + 2 < Max && Max + 3 < Delay )
+            {
+                for ( i = 0; i < If_CutLeaveNum(pCut); i++ )
+                    printf( "%3d ", pTimes[i] );
+                for ( ; i < p->pPars->nLutSize; i++ )
+                    printf( "    " );
+                printf( "-> %3d   ", Delay );
+                Dau_DsdPrintFromTruth( If_CutTruthW(p, pCut), If_CutLeaveNum(pCut) );
+                Kit_TruthIsopPrintCover( vCover, If_CutLeaveNum(pCut), Abc_LitIsCompl(If_CutTruthLit(pCut)) ^ pCut->fCompl );
+                {
+                    Vec_Int_t vIsop;
+                    int pIsop[64];
+                    vIsop.nCap = vIsop.nSize = Abc_Tt6Esop( *If_CutTruthW(p, pCut), pCut->nLeaves, pIsop );
+                    vIsop.pArray = pIsop;
+                    printf( "ESOP (%d -> %d)\n", Vec_IntSize(vCover), vIsop.nSize );
+                    Kit_TruthIsopPrintCover( &vIsop, If_CutLeaveNum(pCut), 0 );
+                }
+                printf( "\n" );
+            }
+        }
         return Delay;
     }
 }

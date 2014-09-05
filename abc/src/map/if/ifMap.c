@@ -122,12 +122,12 @@ void If_ObjPerformMappingAnd( If_Man_t * p, If_Obj_t * pObj, int Mode, int fPrep
         // recompute the parameters of the best cut
         if ( p->pPars->fDelayOpt )
             pCut->Delay = If_CutSopBalanceEval( p, pCut, NULL );
-        else if ( p->pPars->fDelayOptLut )
-            pCut->Delay = If_CutLutBalanceEval( p, pCut );
         else if ( p->pPars->fDsdBalance )
             pCut->Delay = If_CutDsdBalanceEval( p, pCut, NULL );
         else if ( p->pPars->fUserRecLib )
             pCut->Delay = If_CutDelayRecCost3( p, pCut, pObj ); 
+        else if ( p->pPars->fDelayOptLut )
+            pCut->Delay = If_CutLutBalanceEval( p, pCut );
         else if( p->pPars->nGateSize > 0 )
             pCut->Delay = If_CutDelaySop( p, pCut );
         else
@@ -271,13 +271,25 @@ void If_ObjPerformMappingAnd( If_Man_t * p, If_Obj_t * pObj, int Mode, int fPrep
             continue;
         // check if the cut satisfies the required times
         if ( p->pPars->fDelayOpt )
+        {
             pCut->Delay = If_CutSopBalanceEval( p, pCut, NULL );
+//            if ( pCut->Delay >= pObj->Level && pCut->nLeaves > 2 )
+//                pCut->Delay += 1;
+        }
+        else if ( p->pPars->fDsdBalance )
+        {
+            pCut->Delay = If_CutDsdBalanceEval( p, pCut, NULL );
+//            if ( pCut->Delay >= pObj->Level && pCut->nLeaves > 2 )
+//                pCut->Delay += 1;
+        }
+        else if ( p->pPars->fUserRecLib )
+        {
+            pCut->Delay = If_CutDelayRecCost3( p, pCut, pObj ); 
+//            if ( pCut->Delay >= pObj->Level && pCut->nLeaves > 2 )
+//                pCut->Delay += 1;
+        }
         else if ( p->pPars->fDelayOptLut )
             pCut->Delay = If_CutLutBalanceEval( p, pCut );
-        else if ( p->pPars->fDsdBalance )
-            pCut->Delay = If_CutDsdBalanceEval( p, pCut, NULL );
-        else if ( p->pPars->fUserRecLib )
-            pCut->Delay = If_CutDelayRecCost3( p, pCut, pObj ); 
         else if( p->pPars->nGateSize > 0 )
             pCut->Delay = If_CutDelaySop( p, pCut );
         else 
@@ -500,9 +512,11 @@ int If_ManPerformMappingRound( If_Man_t * p, int nCutsUsed, int Mode, int fPrepr
     if ( p->pPars->fVerbose )
     {
         char Symb = fPreprocess? 'P' : ((Mode == 0)? 'D' : ((Mode == 1)? 'F' : 'A'));
-        Abc_Print( 1, "%c: Del = %7.2f. Ar = %9.1f. Edge = %8d. Switch = %7.2f. Cut = %8d. ", 
-            Symb, p->RequiredGlo, p->AreaGlo, p->nNets, p->dPower, p->nCutsMerged );
-//        printf( "Cut0 =%4d. Cut1 =%4d. ", p->nBestCutSmall[0], p->nBestCutSmall[1] );
+        Abc_Print( 1, "%c:  Del = %7.2f.  Ar = %9.1f.  Edge = %8d.  ", 
+            Symb, p->RequiredGlo, p->AreaGlo, p->nNets );
+        if ( p->dPower )
+        Abc_Print( 1, "Switch = %7.2f.  ", p->dPower );
+        Abc_Print( 1, "Cut = %8d.  ", p->nCutsMerged );
         Abc_PrintTime( 1, "T", Abc_Clock() - clk );
 //    Abc_Print( 1, "Max number of cuts = %d. Average number of cuts = %5.2f.\n", 
 //        p->nCutsMax, 1.0 * p->nCutsMerged / If_ManAndNum(p) );

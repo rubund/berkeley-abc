@@ -70,7 +70,7 @@ If_Man_t * If_ManStart( If_Par_t * pPars )
             p->vTtMem[v] = Vec_MemAllocForTT( v, pPars->fUseTtPerm );
         for ( v = 0; v < 6; v++ )
             p->vTtMem[v] = p->vTtMem[6];
-        if ( p->pPars->fDelayOpt )
+        if ( p->pPars->fDelayOpt || pPars->nGateSize > 0 )
         {
             for ( v = 6; v <= Abc_MaxInt(6,p->pPars->nLutSize); v++ )
                 p->vTtIsops[v] = Vec_WecAlloc( 1000 );
@@ -79,7 +79,7 @@ If_Man_t * If_ManStart( If_Par_t * pPars )
             for ( v = 0; v < 6; v++ )
                 p->vTtIsops[v] = p->vTtIsops[6];
         }
-        if ( p->pPars->fDelayOpt || p->pPars->fDsdBalance );
+        if ( pPars->fDelayOpt || pPars->nGateSize > 0 || pPars->fDsdBalance )
         {
             p->vCover = Vec_IntAlloc( 0 );
             p->vArray = Vec_IntAlloc( 1000 );
@@ -124,6 +124,15 @@ If_Man_t * If_ManStart( If_Par_t * pPars )
         Vec_StrFill( p->vPairPerms, p->pPars->nLutSize, 0 );
         p->vPairRes = Vec_IntAlloc( 1000 );
         Vec_IntPush( p->vPairRes, -1 );
+    }
+    if ( pPars->fUseBat )
+    {
+//        abctime clk = Abc_Clock();
+        extern int Bat_ManCellFuncLookup( void * pMan, unsigned * pTruth, int nVars, int nLeaves, char * pStr );
+        extern void Bat_ManFuncSetupTable();
+        pPars->pFuncCell = (int (*)  (If_Man_t *, unsigned *, int, int, char *))Bat_ManCellFuncLookup;
+        Bat_ManFuncSetupTable();
+//        Abc_PrintTime( 1, "Setup time", Abc_Clock() - clk );
     }
     // create the constant node
     p->pConst1   = If_ManSetupObj( p );
@@ -249,6 +258,11 @@ void If_ManStop( If_Man_t * p )
         Tim_ManStop( p->pManTim );
     if ( p->vSwitching )
         Vec_IntFree( p->vSwitching );
+    if ( p->pPars->fUseBat )
+    {
+        extern void Bat_ManFuncSetdownTable();
+        Bat_ManFuncSetdownTable();
+    }
     // hash table
 //    if ( p->pPars->fVerbose && p->nTableEntries[0] )
 //        printf( "Hash table 2:  Entries = %7d.  Size = %7d.\n", p->nTableEntries[0], p->nTableSize[0] );

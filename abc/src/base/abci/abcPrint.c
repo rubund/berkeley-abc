@@ -287,6 +287,9 @@ void Abc_NtkPrintStats( Abc_Ntk_t * pNtk, int fFactored, int fSaveBest, int fDum
         assert( pNtk->pManFunc == Abc_FrameReadLibGen() );
         Abc_Print( 1,"  area =%5.2f", Abc_NtkGetMappedArea(pNtk) );
         Abc_Print( 1,"  delay =%5.2f", Abc_NtkDelayTrace(pNtk, NULL, NULL, 0) );
+        if ( pNtk->pManTime )
+            Abc_ManTimeStop( pNtk->pManTime );
+        pNtk->pManTime = NULL;
     }
     else if ( !Abc_NtkHasBlackbox(pNtk) )
     {
@@ -1082,10 +1085,11 @@ void Abc_NtkPrintGates( Abc_Ntk_t * pNtk, int fUseLibrary )
             if ( Counter == 0 )
                 continue;
             Area = Counter * Mio_GateReadArea( ppGates[i] );
-            printf( "%-*s   Fanin = %2d   Instance = %8d   Area = %10.2f   %6.2f %%\n",
+            printf( "%-*s   Fanin = %2d   Instance = %8d   Area = %10.2f   %6.2f %%    %s\n",
                 nGateNameLen, Mio_GateReadName( ppGates[i] ),
                 Mio_GateReadPinNum( ppGates[i] ),
-                Counter, Area, 100.0 * Area / AreaTotal );
+                Counter, Area, 100.0 * Area / AreaTotal,
+                Mio_GateReadForm(ppGates[i]) );
         }
         printf( "%-*s                Instance = %8d   Area = %10.2f   %6.2f %%\n",
             nGateNameLen, "TOTAL",
