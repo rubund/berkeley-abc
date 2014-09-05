@@ -1,13 +1,13 @@
-Source: yosys-abc
-Section: non-free/electronics
-Priority: extra
+Source: abc
+Section: electronics
+Priority: optional
 Maintainer: Ruben Undheim <ruben.undheim@gmail.com>
 Build-Depends: debhelper (>= 9), libreadline-dev
-Standards-Version: 3.9.2
+Standards-Version: 3.9.5
 Homepage: http://www.eecs.berkeley.edu/~alanmi/abc/
-#Vcs-Mercury: https://bitbucket.org/alanmi/abc
+Vcs-Hg: https://bitbucket.org/alanmi/abc
 
-Package: yosys-abc
+Package: abc
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: ABC - A System for Sequential Synthesis and Verification 

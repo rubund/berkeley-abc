@@ -1,7 +1,7 @@
 #!/bin/bash
 
-PACKAGENAME=yosys-abc
-VERSION=1.01-zhg3-7600ffb9340c
+PACKAGENAME=abc
+VERSION=1.01-20140822hg4d547a5e065b
 rm -rf createdeb/
 mkdir createdeb
 cd createdeb

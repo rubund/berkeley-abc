@@ -14,6 +14,6 @@
 
 
 override_dh_auto_build:
-	cd abc && make PROG="abc-2058c8ccea68" MSG_PREFIX="YOSYS-ABC: "
-	cp abc/abc-2058c8ccea68 yosys-abc
+	cd abc && make PROG="abc" MSG_PREFIX="ABC: "
+	cp abc/abc abc
 
