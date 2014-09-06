@@ -1,7 +1,7 @@
-Index: yosys-abc/abc/Makefile
+Index: yosys-abc/Makefile
 ===================================================================
---- yosys-abc.orig/abc/Makefile
-+++ yosys-abc/abc/Makefile
+--- yosys-abc.orig/Makefile
++++ yosys-abc/Makefile
 @@ -20,7 +20,7 @@ MODULES := \
  	src/map/mapper src/map/mio src/map/super src/map/if \
  	src/map/amap src/map/cov src/map/scl src/map/mpm \
@@ -20,10 +20,10 @@ Index: yosys-abc/abc/Makefile
  ifneq ($(findstring Darwin, $(shell uname)), Darwin)
     LIBS += -lrt
  endif
-Index: yosys-abc/abc/src/base/io/ioReadAiger.c
+Index: yosys-abc/src/base/io/ioReadAiger.c
 ===================================================================
---- yosys-abc.orig/abc/src/base/io/ioReadAiger.c
-+++ yosys-abc/abc/src/base/io/ioReadAiger.c
+--- yosys-abc.orig/src/base/io/ioReadAiger.c
++++ yosys-abc/src/base/io/ioReadAiger.c
 @@ -26,7 +26,7 @@
  #include <string.h>
  #include <assert.h>
@@ -33,10 +33,10 @@ Index: yosys-abc/abc/src/base/io/ioReadAiger.c
  #include "misc/zlib/zlib.h"
  #include "ioAbc.h"
  
-Index: yosys-abc/abc/src/base/io/ioWriteAiger.c
+Index: yosys-abc/src/base/io/ioWriteAiger.c
 ===================================================================
---- yosys-abc.orig/abc/src/base/io/ioWriteAiger.c
-+++ yosys-abc/abc/src/base/io/ioWriteAiger.c
+--- yosys-abc.orig/src/base/io/ioWriteAiger.c
++++ yosys-abc/src/base/io/ioWriteAiger.c
 @@ -26,7 +26,7 @@
  #include <string.h>
  #include <assert.h>
