@@ -1,0 +1,61 @@
+Index: abc/Makefile
+===================================================================
+--- abc.orig/Makefile
++++ abc/Makefile
+@@ -20,7 +20,7 @@ MODULES := \
+ 	src/map/mapper src/map/mio src/map/super src/map/if \
+ 	src/map/amap src/map/cov src/map/scl src/map/mpm \
+ 	src/misc/extra src/misc/mvc src/misc/st src/misc/util src/misc/nm \
+-	src/misc/vec src/misc/hash src/misc/tim src/misc/zlib \
++	src/misc/vec src/misc/hash src/misc/tim \
+ 	src/misc/mem src/misc/bar src/misc/bbl \
+ 	src/opt/cut src/opt/fxu src/opt/rwr src/opt/mfs src/opt/sim \
+ 	src/opt/ret src/opt/res src/opt/lpk src/opt/nwk src/opt/rwt \
+@@ -67,7 +67,7 @@ endif
+ endif
+ 
+ # LIBS := -ldl -lrt
+-LIBS := -ldl -lbz2
++LIBS := -ldl -lbz2 -lz
+ ifneq ($(findstring Darwin, $(shell uname)), Darwin)
+    LIBS += -lrt
+ endif
+Index: abc/src/base/io/ioReadAiger.c
+===================================================================
+--- abc.orig/src/base/io/ioReadAiger.c
++++ abc/src/base/io/ioReadAiger.c
+@@ -27,7 +27,7 @@
+ #include <assert.h>
+ 
+ #include <bzlib.h>
+-#include "misc/zlib/zlib.h"
++#include <zlib.h>
+ #include "ioAbc.h"
+ 
+ ABC_NAMESPACE_IMPL_START
+Index: abc/src/base/io/ioWriteAiger.c
+===================================================================
+--- abc.orig/src/base/io/ioWriteAiger.c
++++ abc/src/base/io/ioWriteAiger.c
+@@ -27,7 +27,7 @@
+ #include <assert.h>
+ 
+ #include <bzlib.h>
+-#include "misc/zlib/zlib.h"
++#include <zlib.h>
+ #include "ioAbc.h"
+ 
+ 
+Index: abc/src/sat/cnf/cnfMan.c
+===================================================================
+--- abc.orig/src/sat/cnf/cnfMan.c
++++ abc/src/sat/cnf/cnfMan.c
+@@ -21,7 +21,7 @@
+ #include "cnf.h"
+ #include "sat/bsat/satSolver.h"
+ #include "sat/bsat/satSolver2.h"
+-#include "misc/zlib/zlib.h"
++#include <zlib.h>
+ 
+ ABC_NAMESPACE_IMPL_START
+ 
