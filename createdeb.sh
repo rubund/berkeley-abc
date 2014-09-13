@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PACKAGENAME=abc
+PACKAGENAME=berkeley-abc
 VERSION=1.01-20140822hg4d547a5e065b
 rm -rf createdeb/
 mkdir createdeb

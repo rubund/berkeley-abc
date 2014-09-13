@@ -1,4 +1,4 @@
-Source: abc
+Source: berkeley-abc
 Section: electronics
 Priority: optional
 Maintainer: Ruben Undheim <ruben.undheim@gmail.com>
@@ -8,7 +8,7 @@ Standards-Version: 3.9.5
 Homepage: http://www.eecs.berkeley.edu/~alanmi/abc/
 Vcs-Hg: https://bitbucket.org/alanmi/abc
 
-Package: abc
+Package: berkeley-abc
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: ABC - A System for Sequential Synthesis and Verification 
