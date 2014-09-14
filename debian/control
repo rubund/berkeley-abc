@@ -5,8 +5,9 @@ Maintainer: Ruben Undheim <ruben.undheim@gmail.com>
 Build-Depends: debhelper (>= 9), libreadline-dev, libbz2-dev,
                zlib1g-dev
 Standards-Version: 3.9.5
+Vcs-Git: git://github.com/rubund/berkeley-abc.git
+Vcs-Browser: https://github.com/rubund/berkeley-abc/tree/master
 Homepage: http://www.eecs.berkeley.edu/~alanmi/abc/
-Vcs-Hg: https://bitbucket.org/alanmi/abc
 
 Package: berkeley-abc
 Architecture: any
