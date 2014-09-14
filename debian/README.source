@@ -1,0 +1,9 @@
+The source tar ball was repackaged since it contained pre-compiled binary
+libraries for Windows:
+
+ abc/lib/x64/pthreadVC2.dll | Bin 82944 -> 0 bytes
+ abc/lib/x64/pthreadVC2.lib | Bin 29738 -> 0 bytes
+ abc/lib/x86/pthreadVC2.dll | Bin 86070 -> 0 bytes
+ abc/lib/x86/pthreadVC2.lib | Bin 29280 -> 0 bytes
+
+These are the only files that have been removed in the +dfsg tar ball.
