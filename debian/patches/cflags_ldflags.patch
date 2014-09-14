@@ -11,22 +11,22 @@ Index: berkeley-abc-1.01-20140822hg4d547a5e065b/Makefile
  %.o: %.c
  	@echo "$(MSG_PREFIX)\`\` Compiling:" $(LOCAL_PATH)/$<
 -	@$(CC) -c $(CFLAGS) $< -o $@
-+	@$(CC) -c $(CFLAGS) $(CPPFLAGS) $< -o $@
++	@$(CC) -c $(CPPFLAGS) $(CFLAGS) $< -o $@
  
  %.o: %.cc
  	@echo "$(MSG_PREFIX)\`\` Compiling:" $(LOCAL_PATH)/$<
 -	@$(CXX) -c $(CXXFLAGS) $< -o $@
-+	@$(CXX) -c $(CXXFLAGS) $(CPPFLAGS) $< -o $@
++	@$(CXX) -c $(CPPFLAGS) $(CXXFLAGS) $< -o $@
  
  %.d: %.c
  	@echo "$(MSG_PREFIX)\`\` Dependency:" $(LOCAL_PATH)/$<
 -	@./depends.sh $(CC) `dirname $*.c` $(CFLAGS) $*.c > $@
-+	@./depends.sh $(CC) `dirname $*.c` $(CFLAGS) $(CPPFLAGS) $*.c > $@
++	@./depends.sh $(CC) `dirname $*.c` $(CPPFLAGS) $(CFLAGS) $*.c > $@
  
  %.d: %.cc
  	@echo "$(MSG_PREFIX)\`\` Generating dependency:" $(LOCAL_PATH)/$<
 -	@./depends.sh $(CXX) `dirname $*.cc` $(CXXFLAGS) $*.cc > $@
-+	@./depends.sh $(CXX) `dirname $*.cc` $(CXXFLAGS) $(CPPFLAGS) $*.cc > $@
++	@./depends.sh $(CXX) `dirname $*.cc` $(CPPFLAGS) $(CXXFLAGS) $*.cc > $@
  
  -include $(DEP)
  
