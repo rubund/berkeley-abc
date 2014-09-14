@@ -1,0 +1,18 @@
+Description: Using LDFLAGS passed down from
+  dpkg-buildflags such that hardening gets 
+  enabled.
+Forwarded: doesn't make sense upstream
+Author: Ruben Undheim <ruben.undheim@gmail.com>
+Index: berkeley-abc-1.01-20140822hg4d547a5e065b/Makefile
+===================================================================
+--- berkeley-abc-1.01-20140822hg4d547a5e065b.orig/Makefile	2014-09-14 10:57:25.942601534 +0200
++++ berkeley-abc-1.01-20140822hg4d547a5e065b/Makefile	2014-09-14 10:57:33.470601614 +0200
+@@ -132,7 +132,7 @@
+ 
+ $(PROG): $(OBJ)
+ 	@echo "$(MSG_PREFIX)\`\` Building binary:" $(notdir $@)
+-	@$(LD) -o $@ $^ $(LIBS)
++	@$(LD) -o $@ $^ $(LIBS) $(LDFLAGS)
+ 
+ lib$(PROG).a: $(OBJ)
+ 	@echo "$(MSG_PREFIX)\`\` Linking:" $(notdir $@)
