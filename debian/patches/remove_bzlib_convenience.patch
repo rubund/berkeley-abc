@@ -1,3 +1,8 @@
+Description: The library bzlib is included in the source and
+  built as a convenience library. This patch prevents this from being
+  built and links berkeley-abc with debian's bzlib library instead.
+Forwarded: doesn't make sense upstream
+Author: Ruben Undheim <ruben.undheim@gmail.com>
 Index: yosys-abc/Makefile
 ===================================================================
 --- yosys-abc.orig/Makefile

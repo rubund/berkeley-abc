@@ -1,3 +1,8 @@
+Description: The library zlib is included in the source and
+  built as a convenience library. This patch prevents this from being
+  built and links berkeley-abc with debian's zlib library instead.
+Forwarded: doesn't make sense upstream
+Author: Ruben Undheim <ruben.undheim@gmail.com>
 Index: abc/Makefile
 ===================================================================
 --- abc.orig/Makefile
