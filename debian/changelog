@@ -1,4 +1,4 @@
-berkeley-abc (1.01-20140822hg4d547a5e065b-1) unstable; urgency=low
+berkeley-abc (1.01-20140822hg4d547a5e065b+dfsg-1) unstable; urgency=low
 
   * Initial release (Closes: #761364)
 

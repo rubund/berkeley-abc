@@ -1,7 +1,7 @@
 #!/bin/bash
 
 PACKAGENAME=berkeley-abc
-VERSION=1.01-20140822hg4d547a5e065b
+VERSION=1.01-20140822hg4d547a5e065b+dfsg
 rm -rf createdeb/
 mkdir createdeb
 cd createdeb
